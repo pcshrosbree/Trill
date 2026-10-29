@@ -30,6 +30,11 @@ namespace Microsoft.StreamProcessing
 
             this.Source = source;
             this.ResultSelector = resultSelector;
+
+            // The fallback pipes write their output a row at a time, so it must be row-based.
+            // They read their input through the batch indexer, which columnar batches support.
+            if (source.Properties.IsColumnar && !CanGenerateColumnar())
+                this.properties = this.properties.ToRowBased();
         }
 
         public override IDisposable Subscribe(IStreamObserver<TOuterKey, TResult> observer)
@@ -110,6 +115,11 @@ namespace Microsoft.StreamProcessing
 
             this.Source = source;
             this.ResultSelector = resultSelector;
+
+            // The fallback pipes write their output a row at a time, so it must be row-based.
+            // They read their input through the batch indexer, which columnar batches support.
+            if (source.Properties.IsColumnar && !CanGenerateColumnar())
+                this.properties = this.properties.ToRowBased();
         }
 
         public override IDisposable Subscribe(IStreamObserver<Empty, TResult> observer)
