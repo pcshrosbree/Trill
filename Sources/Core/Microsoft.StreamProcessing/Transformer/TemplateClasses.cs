@@ -155,6 +155,9 @@ namespace Microsoft.StreamProcessing
                     options: new CSharpParseOptions(LanguageVersion.Latest));
             }
 
+            if (includeIgnoreAccessChecksAssembly)
+                tree = AddIgnoresAccessChecksTo(tree, uniqueReferences);
+
             MetadataReference trill = MetadataReference.CreateFromFile(typeof(StreamMessage).GetTypeInfo().Assembly.Location);
             var baseReferences = new List<MetadataReference>() { trill };
 
@@ -184,6 +187,26 @@ namespace Microsoft.StreamProcessing
             Console.WriteLine("Time to compile: {0}ms", sw.ElapsedMilliseconds);
 #endif
             return assembly;
+        }
+
+        // Generated code can name a non-public member of an assembly the query refers to, such as an internal
+        // property or an F# private module value. The compiler accepts that because of the IgnoreAccessibility
+        // flag, but the runtime then refuses the access unless the generated assembly waives access checks for
+        // the member's assembly, as each template already does for Microsoft.StreamProcessing.
+        private static SyntaxTree AddIgnoresAccessChecksTo(SyntaxTree tree, IEnumerable<Assembly> references)
+        {
+            var attributes = references
+                .Select(r => r.GetName().Name)
+                .Distinct()
+                .Select(name => SyntaxFactory.AttributeList(
+                    SyntaxFactory.AttributeTargetSpecifier(SyntaxFactory.Token(SyntaxKind.AssemblyKeyword)),
+                    SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Attribute(
+                        SyntaxFactory.ParseName("System.Runtime.CompilerServices.IgnoresAccessChecksTo"),
+                        SyntaxFactory.ParseAttributeArgumentList("(" + SymbolDisplay.FormatLiteral(name, true) + ")"))))
+                    .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed))
+                .ToArray();
+            var root = (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)tree.GetRoot();
+            return tree.WithRootAndOptions(root.AddAttributeLists(attributes), tree.Options);
         }
 
         public static ConcurrentDictionary<Assembly, MetadataReference> metadataReferenceCache = new ConcurrentDictionary<Assembly, MetadataReference>();
