@@ -12,6 +12,10 @@ Some changes will come from Amir Burbea's modernisation fork ([amirburbea/Trill]
 
 Issues are welcome here.
 
+## Operator reference
+
+[pcshrosbree.github.io/Trill](https://pcshrosbree.github.io/Trill/) describes Trill's operators. Each operator page has an interactive diagram whose output is computed by Trill itself, running in the browser.
+
 ## How this fork is developed
 
 I write changes with AI assistance, using Anthropic's Claude and OpenAI's Codex, and I review every change before it lands. Changes land through pull requests in this repository, once CI passes and the review is complete.
