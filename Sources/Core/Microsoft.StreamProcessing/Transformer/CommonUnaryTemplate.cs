@@ -78,7 +78,7 @@ namespace Microsoft.StreamProcessing
             catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!", e);
+                    throw CodegenFailure.Create(this.GetType().Name, errorMessages, e);
 
                 return Tuple.Create((Type)null, errorMessages);
             }
@@ -115,7 +115,7 @@ namespace Microsoft.StreamProcessing
             catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!", e);
+                    throw CodegenFailure.Create(this.GetType().Name, errorMessages, e);
 
                 return Tuple.Create((Type)null, errorMessages);
             }

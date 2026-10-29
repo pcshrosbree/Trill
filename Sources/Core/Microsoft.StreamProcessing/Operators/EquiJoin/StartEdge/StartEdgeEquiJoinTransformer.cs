@@ -172,11 +172,11 @@ namespace Microsoft.StreamProcessing
 
                 return template.Generate<TKey, TLeft, TRight, TResult>(selector);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("StartEdgeEquiJoin", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }

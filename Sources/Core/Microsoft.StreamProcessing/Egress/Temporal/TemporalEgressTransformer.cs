@@ -82,11 +82,11 @@ namespace Microsoft.StreamProcessing
                 var t = a.GetType(template.className);
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }
@@ -119,11 +119,11 @@ namespace Microsoft.StreamProcessing
                 var t = a.GetType(template.className);
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }
@@ -157,11 +157,11 @@ namespace Microsoft.StreamProcessing
                 var t = a.GetType(template.className);
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }
@@ -185,11 +185,11 @@ namespace Microsoft.StreamProcessing
                 var t = a.GetType(template.className);
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }
@@ -223,11 +223,11 @@ namespace Microsoft.StreamProcessing
                 var t = a.GetType(template.className);
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }
@@ -262,11 +262,11 @@ namespace Microsoft.StreamProcessing
                 var t = a.GetType(template.className);
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }
