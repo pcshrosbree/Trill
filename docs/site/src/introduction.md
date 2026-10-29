@@ -29,7 +29,7 @@ The logical lifetime is the same either way. The difference matters to code that
 
 - **Drag** an input event left or right to move it.
 - **Drag a bar's right end** to make it longer or shorter. Circles (one-tick inputs) can only be moved.
-- If an output moves past the right of the axis, the axis widens to show it.
+- The axis stays fixed while you drag, so the event stays under the pointer. If an output then lies past the right of the axis, the axis widens to show it when you let go.
 - The status line under the diagram says whether you are looking at the recorded run or live Trill, and how long the last run took.
 
 The inputs use small integer times so that the diagrams stay readable. Trill's times are `long` ticks, and nothing here depends on their unit.

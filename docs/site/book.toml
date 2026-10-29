@@ -5,6 +5,8 @@ language = "en"
 src = "src"
 
 [output.html]
+# The project site is served under /Trill/; the 404 page needs that base.
+site-url = "/Trill/"
 additional-css = ["src/marbles/marbles.css"]
 additional-js = ["src/marbles/loader.js"]
 git-repository-url = "https://github.com/pcshrosbree/Trill"

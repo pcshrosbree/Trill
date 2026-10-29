@@ -9,11 +9,11 @@ The documentation, its build and its tests live under `docs/site/`, and its work
 | Path | What it is |
 |---|---|
 | `Catalog/` | The diagrams: each entry's inputs and query. The code a page shows is captured from the query lambda by `[CallerArgumentExpression]`, so it is the code that runs. |
-| `Marbles/` | The browser host: Trill under .NET WebAssembly, exposing one `[JSExport]` call. Trimmed (framework only) and with Roslyn lazy-loaded, since row mode never invokes Roslyn. |
+| `Marbles/` | The browser host: Trill under .NET WebAssembly, exposing one `[JSExport]` call. Trims the assemblies marked trimmable (the framework and System.Reactive) but keeps Trill whole, and lazy-loads Roslyn, since row mode never invokes Roslyn. |
 | `DiagramTests/` | Checks that `src/marbles/catalog.json`, the recorded runs the pages draw first, equals a fresh native run, and that the check can fail. |
 | `src/` | The mdBook pages. `src/marbles/` holds the widget script, its stylesheet and `catalog.json`. |
 | `build.sh` | Publishes `Marbles`, builds the book into `book/`, and copies the WebAssembly files next to the widget. |
-| `check-site.mjs` | Loads every page of the built book in headless Chrome. Each diagram must run its query with no console error, its live output must equal the recorded run, and no event glyph may extend outside its diagram. Two drags check that the axis widens for output, and for a label, past its end; a third must change Join's output. It checks the data and the bounds of what is drawn, not whether the drawing is otherwise right. |
+| `check-site.mjs` | Loads every page of the built book in headless Chrome. Each diagram must run its query with no console error, its live output must equal the recorded run, and no event glyph may extend outside its diagram. Two drags check that the axis widens for output, and for a label, past its end; a third must change Join's output. The axis stays fixed during a drag, so a dragged event must stay under the pointer, and no drag may raise a console error. It checks the data and the bounds of what is drawn, not whether the drawing is otherwise right. |
 
 ## Build and check
 

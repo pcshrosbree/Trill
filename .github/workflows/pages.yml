@@ -10,13 +10,13 @@ on:
   pull_request:
     paths:
       - 'docs/site/**'
-      - 'Sources/Core/**'
+      - 'Sources/**'
       - '.github/workflows/pages.yml'
   push:
     branches: [master]
     paths:
       - 'docs/site/**'
-      - 'Sources/Core/**'
+      - 'Sources/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
