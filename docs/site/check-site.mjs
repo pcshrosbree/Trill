@@ -93,7 +93,10 @@ async function geometryProblems() {
 // by the given number of time units in small steps, release, and let the
 // recompute finish.
 async function drag(target, units, beforeRelease) {
-  const box = await evaluate(`(() => { const t = (${target}); t.scrollIntoView({ block: 'center' });
+  // Scroll the target into view and let layout settle before measuring it.
+  await evaluate(`(${target}).scrollIntoView({ block: 'center' })`);
+  await sleep(150);
+  const box = await evaluate(`(() => { const t = (${target});
     const r = t.getBoundingClientRect();
     const s = t.closest('svg');
     const vb = s.viewBox.baseVal;
@@ -178,6 +181,10 @@ try {
   await visit('print.html');
   const onPrint = id => `document.querySelector('.trill-marbles[data-op=${id}]')`;
   await drag(`[...${onPrint('tumbling-window')}.querySelectorAll('g.ev')].filter(g => g.querySelector('title') && g.querySelector('circle')).at(-1)`, 5);
+  // Without this precondition the scenario proves nothing: Join's drag can
+  // only be skewed if Tumbling's axis really widened first.
+  const tumblingAxis = await evaluate(`Number(${onPrint('tumbling-window')}.querySelector('svg').dataset.axisEnd)`);
+  if (tumblingAxis !== 20) fail(`print page: the Tumbling drag did not widen its axis to 20 (got ${tumblingAxis}), so the Join check below proves nothing`);
   await drag(`${onPrint('join')}.querySelector('.ev .fill')`, 3, async (pointerX, tick) => {
     // The press was 10 px into the bar, so the bar's left edge should now sit 10 px left of the pointer.
     // Find a:1 by its label: lanes re-sort by start time, so it is no longer the first bar.
