@@ -76,7 +76,7 @@ namespace SimpleTesting
         public void ShuffleStreamable3Row()
         {
             using (var modifier = new ConfigModifier().UseMultiString(true)
-                //// TODO: OwnedThreads(2) causes intermittent failures .DefaultScheduler(StreamScheduler.OwnedThreads(2))
+                .DefaultScheduler(StreamScheduler.OwnedThreads(2))
                 .Modify())
             {
                 var input = Enumerable.Range(0, 100)
@@ -210,7 +210,7 @@ namespace SimpleTesting
         public void ShuffleStreamable3RowSmallBatch()
         {
             using (var modifier = new ConfigModifier().UseMultiString(true)
-                //// TODO: OwnedThreads(2) causes intermittent failures .DefaultScheduler(StreamScheduler.OwnedThreads(2))
+                .DefaultScheduler(StreamScheduler.OwnedThreads(2))
                 .Modify())
             {
                 var input = Enumerable.Range(0, 100)
@@ -343,7 +343,7 @@ namespace SimpleTesting
         public void ShuffleStreamable3Columnar()
         {
             using (var modifier = new ConfigModifier().UseMultiString(true)
-                //// TODO: OwnedThreads(2) causes intermittent failures .DefaultScheduler(StreamScheduler.OwnedThreads(2))
+                .DefaultScheduler(StreamScheduler.OwnedThreads(2))
                 .Modify())
             {
                 var input = Enumerable.Range(0, 100)
@@ -477,7 +477,7 @@ namespace SimpleTesting
         public void ShuffleStreamable3ColumnarSmallBatch()
         {
             using (var modifier = new ConfigModifier().UseMultiString(true)
-                //// TODO: OwnedThreads(2) causes intermittent failures .DefaultScheduler(StreamScheduler.OwnedThreads(2))
+                .DefaultScheduler(StreamScheduler.OwnedThreads(2))
                 .Modify())
             {
                 var input = Enumerable.Range(0, 100)
