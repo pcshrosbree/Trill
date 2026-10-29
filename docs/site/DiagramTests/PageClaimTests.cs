@@ -1,3 +1,4 @@
+using System.Reactive.Linq;
 using Microsoft.StreamProcessing;
 using TrillDocs;
 
@@ -68,6 +69,27 @@ public sealed class PageClaimTests
     public void HoppingPeriodLargerThanSizeDropsGapEvents() =>
         Assert.AreEqual("Interval[4,6)a:1",
             Show(Run(s => s.HoppingWindowLifetime(2, 4), I(1, 2), I(3, 4))));
+
+    // multicast.md: "Every branch the function builds from s shares one subscription to the source."
+    // The same two branches without Multicast subscribe twice, which shows the count can tell them apart.
+    [TestMethod]
+    public void MulticastBranchesShareOneSourceSubscription()
+    {
+        Config.ForceRowBasedExecution = true;
+        int subscriptions = 0;
+        var source = Observable.Defer(() =>
+        {
+            subscriptions++;
+            return new[] { StreamEvent.CreateInterval(1, 5, new Ev { Key = "a", Value = 3 }) }.ToObservable();
+        }).ToStreamable();
+
+        Operators.Collect(source.Multicast(s => s.Where(e => e.Key == "a").Union(s.Where(e => e.Value > 2))));
+        Assert.AreEqual(1, subscriptions, "with Multicast");
+
+        subscriptions = 0;
+        Operators.Collect(source.Where(e => e.Key == "a").Union(source.Where(e => e.Value > 2)));
+        Assert.AreEqual(2, subscriptions, "without Multicast");
+    }
 
     // where-not-exists.md: a Join that projects the left payload emits one copy per overlapping right match.
     [TestMethod]
