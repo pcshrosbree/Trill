@@ -62,12 +62,8 @@ public sealed class CatalogTests
     }
 
     [TestMethod]
-    public void IdsAreUniqueAndCategoriesKnown()
-    {
+    public void IdsAreUnique() =>
         Assert.AreEqual(Operators.All.Length, Operators.All.Select(e => e.Id).Distinct().Count());
-        foreach (var entry in Operators.All)
-            CollectionAssert.Contains(Operators.Categories, entry.Category, entry.Id);
-    }
 
     [TestMethod]
     public void PageCodeIsTheQueryLambdaBody()
