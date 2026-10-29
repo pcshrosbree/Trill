@@ -19,9 +19,6 @@ concurrency:
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   DOTNET_NOLOGO: '1'
-  # SimpleTesting targets netcoreapp3.1, which no supported runtime provides.
-  # LatestMajor runs it on the newest installed runtime; Major would pick the oldest newer one.
-  DOTNET_ROLL_FORWARD: LatestMajor
 
 jobs:
   build-test:
@@ -30,11 +27,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
-        include:
-          # macos-latest is ARM64. VSTest defaults to an x64 test host for targets older
-          # than .NET 6, which the ARM64 .NET installed by setup-dotnet cannot run.
-          - os: macos-latest
-            test-args: '-- RunConfiguration.TargetPlatform=ARM64'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -52,7 +44,7 @@ jobs:
       - name: Build library
         run: dotnet build Sources/Core/Microsoft.StreamProcessing/Microsoft.StreamProcessing.csproj -c Release
       - name: Test
-        run: dotnet test Sources/Test/SimpleTesting/SimpleTesting.csproj -c Release -f netcoreapp3.1 ${{ matrix.test-args }}
+        run: dotnet test Sources/Test/SimpleTesting/SimpleTesting.csproj -c Release
 
   dotnet11-preview:
     name: build and test (.NET 11 preview SDK)
@@ -61,6 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      # Run the net10.0 tests on the newest runtime, the .NET 11 preview, not on a 10.0 runtime.
+      DOTNET_ROLL_FORWARD: LatestMajor
       DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,4 +72,4 @@ jobs:
       - name: Build library
         run: dotnet build Sources/Core/Microsoft.StreamProcessing/Microsoft.StreamProcessing.csproj -c Release
       - name: Test
-        run: dotnet test Sources/Test/SimpleTesting/SimpleTesting.csproj -c Release -f netcoreapp3.1
+        run: dotnet test Sources/Test/SimpleTesting/SimpleTesting.csproj -c Release

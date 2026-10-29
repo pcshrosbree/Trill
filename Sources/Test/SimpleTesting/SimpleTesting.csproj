@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net472;netcoreapp3.1</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
     <Platforms>AnyCPU</Platforms>
   </PropertyGroup>
 
@@ -18,7 +18,7 @@
     Microsoft.NET.Test.Sdk in .NET Core injects a stub main entry point for test execution by default to convert lib projects to console apps.
     Since we have our own entry point to enable manually compiling OutputType of Exe, we need to tell it not to generate one automatically.
   -->
-  <PropertyGroup Condition=" '$(TargetFramework)' != 'net472' ">
+  <PropertyGroup>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   

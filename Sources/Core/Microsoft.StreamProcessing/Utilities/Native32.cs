@@ -75,7 +75,9 @@ namespace Microsoft.StreamProcessing
                 if (utid == pt.Id)
                 {
                     long AffinityMask = 1 << processor;
+#pragma warning disable CA1416 // Windows only, like the kernel32 call above
                     pt.ProcessorAffinity = (IntPtr)(AffinityMask); // Set affinity for this
+#pragma warning restore CA1416
                 }
             }
         }

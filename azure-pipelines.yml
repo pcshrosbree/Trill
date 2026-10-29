@@ -40,6 +40,6 @@ jobs:
 
   - task: VSTest@2
     inputs:
-      testAssemblyVer2: 'bintest\**\netcoreapp3.1\SimpleTesting.dll'
+      testAssemblyVer2: 'bintest\**\net10.0\SimpleTesting.dll'
       platform: '$(buildPlatform)'
       configuration: '$(buildConfiguration)'
