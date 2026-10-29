@@ -179,7 +179,9 @@ function mount(host, entry) {
 
   function draw() {
     svg.replaceChildren();
-    setDomain(inputs.flat().concat(output));
+    // The axis is frozen during a drag, so the dragged event stays under the
+    // pointer; it widens, if output needs it, when the drag ends.
+    if (!drag) setDomain(inputs.flat().concat(output));
     let y = 4;
     inputs.forEach((evs, i) => { y += drawLane(svg, y, entry.inputNames[i], evs, { input: true, points: pointLanes[i], bind: run && bind }); });
     const lines = entry.code.split('\n');
@@ -194,6 +196,7 @@ function mount(host, entry) {
     svg.setAttribute('width', W);
     svg.dataset.axisEnd = T;     // read by check-site.mjs to convert ticks to pixels
     host.dataset.output = JSON.stringify(output);
+    host.dataset.inputs = JSON.stringify(inputs);
   }
 
   function recompute() {
@@ -219,7 +222,7 @@ function mount(host, entry) {
     else { drag.ev.start = Math.max(0, Math.min(INPUT_T - len, drag.s0 + dt)); drag.ev.end = drag.ev.start + len; }
     if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; recompute(); }); }
   });
-  svg.addEventListener('pointerup', () => { drag = null; });
+  svg.addEventListener('pointerup', () => { if (drag) { drag = null; draw(); } });
 
   status.textContent = 'Recorded run. Loading Trill to make it interactive…';
   draw();

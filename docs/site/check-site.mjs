@@ -85,7 +85,7 @@ async function geometryProblems() {
 // Press on the element that the JavaScript expression `target` returns, move it
 // by the given number of time units in small steps, release, and let the
 // recompute finish.
-async function drag(target, units) {
+async function drag(target, units, beforeRelease) {
   const box = await evaluate(`(() => { const r = (${target}).getBoundingClientRect();
     const s = document.querySelector('.trill-marbles svg');
     const vb = s.viewBox.baseVal;
@@ -95,8 +95,19 @@ async function drag(target, units) {
   await mouse('mousePressed', box.x);
   const steps = 2 * Math.abs(units), dir = Math.sign(units);
   for (let k = 1; k <= steps; k++) { await mouse('mouseMoved', box.x + dir * k * box.unit / 2); await sleep(30); }
+  await sleep(100);
+  if (beforeRelease) await beforeRelease(box.x + units * box.unit, box.unit);
   await mouse('mouseReleased', box.x + units * box.unit);
   await sleep(300);
+}
+
+// After a drag scenario, before the next visit() clears them: any console
+// error or exception raised during the drags is a failure, and the diagram
+// must still be live.
+async function scenarioErrors(name) {
+  for (const e of errors) fail(`${name}: console error: ${e}`);
+  const live = await evaluate("document.querySelector('.trill-marbles')?.dataset.ready");
+  if (live !== 'live') fail(`${name}: diagram is no longer live (${live})`);
 }
 
 let failures = 0;
@@ -119,7 +130,19 @@ try {
   // not clip: move the last one-tick input of the tumbling window to the end.
   await visit('operators/tumbling-window.html');
   // Input marbles carry a <title>; legend swatches do not. The last one is the event at 9.
-  await drag("[...document.querySelectorAll('.trill-marbles g.ev')].filter(g => g.querySelector('title') && g.querySelector('circle')).at(-1)", 7);
+  // Moving it 5 ticks (9 to 14) takes its output past 16. The axis must stay
+  // frozen during the drag, so the circle is still under the pointer just
+  // before release, and the event must land exactly 5 ticks on.
+  const lastMarble = "[...document.querySelectorAll('.trill-marbles g.ev')].filter(g => g.querySelector('title') && g.querySelector('circle')).at(-1)";
+  await drag(lastMarble, 5, async (pointerX, tick) => {
+    const cx = await evaluate(`(() => { const r = (${lastMarble}).querySelector('circle').getBoundingClientRect(); return r.left + r.width / 2; })()`);
+    if (!(Math.abs(cx - pointerX) < tick / 2)) fail(`tumbling-window: during the drag the circle is ${(cx - pointerX).toFixed(1)} px from the pointer (axis rescaled mid-drag?)`);
+    else console.log('ok   tumbling-window: the dragged circle stays under the pointer');
+  });
+  const movedTo = await evaluate("JSON.parse(document.querySelector('.trill-marbles').dataset.inputs)[0].map(e => e.start).at(-1)");
+  if (movedTo !== 14) fail(`tumbling-window: a 5-tick drag of the event at 9 landed at ${movedTo}, not 14`);
+  else console.log('ok   tumbling-window: a 5-tick drag lands 5 ticks on');
+  await scenarioErrors('tumbling-window drag');
   const maxEnd = await evaluate("Math.max(...JSON.parse(document.querySelector('.trill-marbles').dataset.output).map(e => e.end ?? 0))");
   if (!(maxEnd > 16)) fail(`tumbling-window drag did not move output past 16 (max end ${maxEnd}), so the geometry check below proves nothing`);
   const wide = await geometryProblems();
@@ -136,6 +159,7 @@ try {
   await drag("[...document.querySelectorAll('.trill-marbles g.ev')].find(g => g.querySelector('title')?.textContent.startsWith('[6, 7)  a:3')).querySelector('.fill')", 9);
   const placed = await evaluate("JSON.parse(document.querySelector('.trill-marbles').dataset.output).some(e => e.start === 15 && e.end === 16 && e.label === '3+none')");
   if (!placed) fail('left-outer-join drag did not produce a:3+none [15,16), so the label check below proves nothing');
+  await scenarioErrors('left-outer-join drag');
   const edge = await geometryProblems();
   for (const c of edge) fail(`left-outer-join after drag: ${c}`);
   if (placed && !edge.length) console.log('ok   left-outer-join: a label after a short bar at the right edge stays on screen');
@@ -146,6 +170,7 @@ try {
   await drag("document.querySelector('.trill-marbles .ev .fill')", 3);
   if (before === await evaluate("document.querySelector('.trill-marbles').dataset.output")) fail('join: dragging an input did not change the output');
   else console.log('ok   join: drag recomputed the output');
+  await scenarioErrors('join drag');
   await shot('join-after-drag');
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
   await visit('operators/left-outer-join.html');

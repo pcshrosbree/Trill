@@ -8,8 +8,9 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- partial: trim only framework assemblies marked trimmable. Trill builds
-         generic types by reflection and stays whole. -->
+    <!-- partial: trim only assemblies marked trimmable (the framework, and
+         System.Reactive). Trill is not marked; it builds generic types by
+         reflection and stays whole. -->
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode>
     <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
