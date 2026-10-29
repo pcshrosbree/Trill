@@ -100,7 +100,7 @@ foreach (var batch in new [] { string.Empty, "SmallBatch" })
         public void ShuffleStreamable3<#= suffix #>()
         {
             using (var modifier = new ConfigModifier().UseMultiString(true)
-                //// TODO: OwnedThreads(2) causes intermittent failures .DefaultScheduler(StreamScheduler.OwnedThreads(2))
+                .DefaultScheduler(StreamScheduler.OwnedThreads(2))
                 .Modify())
             {
                 var input = Enumerable.Range(0, 100)
