@@ -176,12 +176,17 @@ function mount(host, entry) {
   status.className = 'status';
   host.replaceChildren(svg, status);
   let output = entry.output, run = null, drag = null, pending = false;
+  // This diagram's own axis. T and UNIT are shared by the drawing helpers, so
+  // each draw sets them from here; a page can hold several diagrams (mdBook's
+  // print page holds them all), and one diagram's axis must not leak into another.
+  let dom = { T: INPUT_T, UNIT: (W - LEFT - RIGHT) / INPUT_T };
 
   function draw() {
     svg.replaceChildren();
     // The axis is frozen during a drag, so the dragged event stays under the
     // pointer; it widens, if output needs it, when the drag ends.
-    if (!drag) setDomain(inputs.flat().concat(output));
+    if (!drag) { setDomain(inputs.flat().concat(output)); dom = { T, UNIT }; }
+    else { T = dom.T; UNIT = dom.UNIT; }
     let y = 4;
     inputs.forEach((evs, i) => { y += drawLane(svg, y, entry.inputNames[i], evs, { input: true, points: pointLanes[i], bind: run && bind }); });
     const lines = entry.code.split('\n');
@@ -216,7 +221,7 @@ function mount(host, entry) {
 
   svg.addEventListener('pointermove', p => {
     if (!drag) return;
-    const dt = Math.round((p.clientX - drag.x0) / (UNIT * svg.getBoundingClientRect().width / W));
+    const dt = Math.round((p.clientX - drag.x0) / (dom.UNIT * svg.getBoundingClientRect().width / W));
     const len = drag.e0 - drag.s0;
     if (drag.resize) drag.ev.end = Math.max(drag.s0 + 1, Math.min(INPUT_T, drag.e0 + dt));
     else { drag.ev.start = Math.max(0, Math.min(INPUT_T - len, drag.s0 + dt)); drag.ev.end = drag.ev.start + len; }
