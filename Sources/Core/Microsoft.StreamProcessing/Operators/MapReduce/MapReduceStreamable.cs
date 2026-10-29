@@ -49,6 +49,13 @@ namespace Microsoft.StreamProcessing
                 this.sprayComparer = this.sourceLeft.Properties.GetSprayComparerExpression(this.keySelector);
             }
             this.isMulticore = this.sourceLeft.Properties.IsMulticore;
+
+            // The derived properties model grouping and ungrouping with property transforms, which do not run
+            // those operators' code generation checks. The grouping and ungrouping operators built for the
+            // query make that check when they are created, and one that falls back to row mode emits row
+            // batches, which a columnar operator downstream cannot read. Build the query once to find out.
+            if (this.properties.IsColumnar && !BuildQuery().Properties.IsColumnar)
+                this.properties = this.properties.ToRowBased();
         }
 
         internal MapReduceStreamable(
@@ -61,6 +68,10 @@ namespace Microsoft.StreamProcessing
         { }
 
         public override IDisposable Subscribe(IStreamObserver<TMapKey, TOutput> observer)
+            => BuildQuery().Subscribe(observer);
+
+        // Builds the operators that carry out the map and reduce, without subscribing to them.
+        private IStreamable<TMapKey, TOutput> BuildQuery()
         {
             // asymmetric mapper implies that we have to have a 2-input mapper
             Contract.Assert((!this.leftAsymmetric) || (this.sourceRight != null));
@@ -105,7 +116,7 @@ namespace Microsoft.StreamProcessing
                     // [6] final single merging union
                     var union = new MultiUnionStreamable<TMapKey, TOutput>(ungroupInnerResults, false);
 
-                    return union.Subscribe(observer);
+                    return union;
                 }
                 else // single-input mapper
                 {
@@ -156,7 +167,7 @@ namespace Microsoft.StreamProcessing
                     // [6] final single merging union
                     var union = new MultiUnionStreamable<TMapKey, TOutput>(ungroupInnerResults, false);
 
-                    return union.Subscribe(observer);
+                    return union;
                 }
             }
             else
@@ -177,7 +188,7 @@ namespace Microsoft.StreamProcessing
                     var shuffleL2Result
                         = new MultiUnionStreamable<TMapKey, TReduceInput>(sprayResults, false) as MultiUnionStreamable<TMapKey, TOutput>;
 
-                    return shuffleL2Result.Subscribe(observer);
+                    return shuffleL2Result;
                 }
                 else // single-input mapper
                 {
@@ -194,7 +205,7 @@ namespace Microsoft.StreamProcessing
                     var shuffleL2Result
                         = new MultiUnionStreamable<TMapKey, TReduceInput>(sprayResults, false) as MultiUnionStreamable<TMapKey, TOutput>;
 
-                    return shuffleL2Result.Subscribe(observer);
+                    return shuffleL2Result;
                 }
             }
         }
@@ -241,6 +252,13 @@ namespace Microsoft.StreamProcessing
                 this.sprayComparer = this.sourceLeft.Properties.GetSprayComparerExpression(this.keySelector);
             }
             this.isMulticore = this.sourceLeft.Properties.IsMulticore;
+
+            // The derived properties model grouping and ungrouping with property transforms, which do not run
+            // those operators' code generation checks. The grouping and ungrouping operators built for the
+            // query make that check when they are created, and one that falls back to row mode emits row
+            // batches, which a columnar operator downstream cannot read. Build the query once to find out.
+            if (this.properties.IsColumnar && !BuildQuery().Properties.IsColumnar)
+                this.properties = this.properties.ToRowBased();
         }
 
         internal MapReduceStreamable(
@@ -253,6 +271,10 @@ namespace Microsoft.StreamProcessing
         { }
 
         public override IDisposable Subscribe(IStreamObserver<Empty, TOutput> observer)
+            => BuildQuery().Subscribe(observer);
+
+        // Builds the operators that carry out the map and reduce, without subscribing to them.
+        private IStreamable<Empty, TOutput> BuildQuery()
         {
             // asymmetric mapper implies that we have to have a 2-input mapper
             Contract.Assert((!this.leftAsymmetric) || (this.sourceRight != null));
@@ -297,7 +319,7 @@ namespace Microsoft.StreamProcessing
                     // [6] final single merging union
                     var union = new MultiUnionStreamable<Empty, TOutput>(ungroupInnerResults, false);
 
-                    return union.Subscribe(observer);
+                    return union;
                 }
                 else // single-input mapper
                 {
@@ -348,7 +370,7 @@ namespace Microsoft.StreamProcessing
                     // [6] final single merging union
                     var union = new MultiUnionStreamable<Empty, TOutput>(ungroupInnerResults, false);
 
-                    return union.Subscribe(observer);
+                    return union;
                 }
             }
             else
@@ -369,7 +391,7 @@ namespace Microsoft.StreamProcessing
                     var shuffleL2Result
                         = new MultiUnionStreamable<Empty, TReduceInput>(sprayResults, false) as MultiUnionStreamable<Empty, TOutput>;
 
-                    return shuffleL2Result.Subscribe(observer);
+                    return shuffleL2Result;
                 }
                 else // single-input mapper
                 {
@@ -386,7 +408,7 @@ namespace Microsoft.StreamProcessing
                     var shuffleL2Result
                         = new MultiUnionStreamable<Empty, TReduceInput>(sprayResults, false) as MultiUnionStreamable<Empty, TOutput>;
 
-                    return shuffleL2Result.Subscribe(observer);
+                    return shuffleL2Result;
                 }
             }
         }
