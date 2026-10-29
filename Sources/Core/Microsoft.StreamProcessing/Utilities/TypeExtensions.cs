@@ -355,6 +355,9 @@ namespace Microsoft.StreamProcessing
             return false; // didn't find a type for which the base MemoryPool can't handle
         }
 
+        private static bool HasAutoPropertyBackingField(PropertyInfo p)
+            => p.DeclaringType.GetField("<" + p.Name + ">k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance) != null;
+
         /// <summary>
         /// Returns true iff <paramref name="type"/> can be used as a *non* key
         /// type for code gen. (All types can be used as key types.)
@@ -412,14 +415,12 @@ namespace Microsoft.StreamProcessing
                     {
                         // A get-only autoprop (no setter at all) cannot be assigned during
                         // columnar reconstitution, which sets each property via a plain
-                        // assignment - UNLESS its getter is non-public, in which case this isn't
-                        // user-facing row state at all: every `record` (but not `record struct`)
-                        // synthesizes a `protected virtual Type EqualityContract => typeof(T);`
-                        // exactly like this (compiler-generated, get-only, non-public). It has no
-                        // independent storage - it is always re-derivable from the runtime type -
-                        // so there is nothing for columnar reconstitution to lose by not touching it.
-                        if (!getMethod.IsPublic) continue;
-                        return false;
+                        // assignment, so its value would be lost, whatever the getter's visibility.
+                        // A compiler-generated getter without a backing field holds no state:
+                        // every `record` (but not `record struct`) synthesizes one,
+                        // `protected virtual Type EqualityContract => typeof(T);`.
+                        if (HasAutoPropertyBackingField(p)) return false;
+                        continue;
                     }
                     if (!setMethod.IsDefined(typeof(CompilerGeneratedAttribute))) continue;
 
