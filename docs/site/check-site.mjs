@@ -31,12 +31,19 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const port = 9300 + Math.floor(Math.random() * 500);
 const chrome = spawn(chromeBin, ['--headless=new', `--remote-debugging-port=${port}`, '--no-first-run',
   `--user-data-dir=${profile}`, '--window-size=1000,1200', 'about:blank'], { stdio: 'ignore' });
+// A page that never goes live (a script error, say) would make every wait run
+// to its limit. Stop the whole check, and the browser with it, after 5 minutes.
+const watchdog = setTimeout(() => {
+  console.error('check-site: gave up after 5 minutes');
+  chrome.kill('SIGTERM');
+  process.exit(3);
+}, 300000);
 let target;
 for (let i = 0; i < 150 && !target; i++) {
   try { target = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === 'page'); }
   catch { await sleep(200); }
 }
-if (!target) { console.error(`could not start ${chromeBin}`); process.exit(2); }
+if (!target) { console.error(`could not start ${chromeBin}`); chrome.kill('SIGTERM'); process.exit(2); }
 
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise(r => ws.addEventListener('open', r));
@@ -86,8 +93,9 @@ async function geometryProblems() {
 // by the given number of time units in small steps, release, and let the
 // recompute finish.
 async function drag(target, units, beforeRelease) {
-  const box = await evaluate(`(() => { const r = (${target}).getBoundingClientRect();
-    const s = document.querySelector('.trill-marbles svg');
+  const box = await evaluate(`(() => { const t = (${target}); t.scrollIntoView({ block: 'center' });
+    const r = t.getBoundingClientRect();
+    const s = t.closest('svg');
     const vb = s.viewBox.baseVal;
     return { x: r.left + Math.min(10, r.width / 2), y: r.top + r.height / 2,
       unit: s.getBoundingClientRect().width / vb.width * (vb.width - 84 - 24) / Number(s.dataset.axisEnd) }; })()`);
@@ -164,6 +172,24 @@ try {
   for (const c of edge) fail(`left-outer-join after drag: ${c}`);
   if (placed && !edge.length) console.log('ok   left-outer-join: a label after a short bar at the right edge stays on screen');
 
+  // mdBook's print page holds every diagram. Widening one diagram's axis must
+  // not change another's drag scale: widen Tumbling's axis, then a 3-tick drag
+  // of Join's first input must move it from [1,5) to [4,8).
+  await visit('print.html');
+  const onPrint = id => `document.querySelector('.trill-marbles[data-op=${id}]')`;
+  await drag(`[...${onPrint('tumbling-window')}.querySelectorAll('g.ev')].filter(g => g.querySelector('title') && g.querySelector('circle')).at(-1)`, 5);
+  await drag(`${onPrint('join')}.querySelector('.ev .fill')`, 3, async (pointerX, tick) => {
+    // The press was 10 px into the bar, so the bar's left edge should now sit 10 px left of the pointer.
+    // Find a:1 by its label: lanes re-sort by start time, so it is no longer the first bar.
+    const left = await evaluate(`[...${onPrint('join')}.querySelectorAll('g.ev')].find(g => g.querySelector('title')?.textContent.includes('  a:1  ')).querySelector('.fill').getBoundingClientRect().left`);
+    if (!(Math.abs(left + 10 - pointerX) < tick / 2)) fail(`print page: during the Join drag its bar is ${(left + 10 - pointerX).toFixed(1)} px from the pointer`);
+  });
+  const joinFirst = await evaluate(`JSON.parse(${onPrint('join')}.dataset.inputs)[0][0]`);
+  if (joinFirst?.start !== 4 || joinFirst?.end !== 8)
+    fail(`print page: after Tumbling's axis widened, a 3-tick drag of Join's first input gave [${joinFirst?.start},${joinFirst?.end}), not [4,8)`);
+  else console.log('ok   print page: one diagram\'s axis does not change another\'s drag');
+  await scenarioErrors('print page drags');
+
   await visit('operators/join.html');
   await shot('join');
   const before = await evaluate("document.querySelector('.trill-marbles').dataset.output");
@@ -176,7 +202,7 @@ try {
   await visit('operators/left-outer-join.html');
   await shot('left-outer-join-dark');
 } finally {
-  ws.close(); chrome.kill(); server.close();
+  clearTimeout(watchdog); ws.close(); chrome.kill(); server.close();
 }
 console.log(failures ? `${failures} check(s) failed` : 'all checks passed');
 process.exit(failures ? 1 : 0);
