@@ -1,0 +1,13 @@
+<Project Sdk="MSTest.Sdk/4.5.1">
+  <!-- Every diagram is a test: catalog.json (what the pages draw) must equal a
+       fresh native row-mode run of the catalogue. Lives under docs/ so that
+       Sources/ stays free of fork-only material. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Catalog/Catalog.csproj" />
+  </ItemGroup>
+</Project>

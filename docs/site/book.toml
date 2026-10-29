@@ -1,0 +1,11 @@
+[book]
+title = "Trill operators, with diagrams"
+description = "An operator reference for Trill, with interactive diagrams computed by Trill itself."
+language = "en"
+src = "src"
+
+[output.html]
+additional-css = ["src/marbles/marbles.css"]
+additional-js = ["src/marbles/loader.js"]
+git-repository-url = "https://github.com/pcshrosbree/Trill"
+edit-url-template = "https://github.com/pcshrosbree/Trill/edit/master/docs/site/{path}"

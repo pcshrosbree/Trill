@@ -1,0 +1,20 @@
+# Summary
+
+[Reading the diagrams](introduction.md)
+
+- [Operators by category](operators.md)
+  - [Where](operators/where.md)
+  - [Select](operators/select.md)
+  - [AlterEventDuration](operators/alter-event-duration.md)
+  - [ClipEventDuration](operators/clip-event-duration.md)
+  - [TumblingWindowLifetime](operators/tumbling-window.md)
+  - [HoppingWindowLifetime](operators/hopping-window.md)
+  - [Union](operators/union.md)
+  - [Multicast](operators/multicast.md)
+  - [Join](operators/join.md)
+  - [LeftOuterJoin](operators/left-outer-join.md)
+  - [WhereNotExists](operators/where-not-exists.md)
+  - [Count (tumbling window)](operators/count.md)
+  - [Sum (hopping window)](operators/sum.md)
+  - [GroupApply](operators/group-apply.md)
+  - [Detect](operators/detect.md)

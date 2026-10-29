@@ -1,0 +1,95 @@
+name: Operator docs
+
+# Builds the operator reference (docs/site), checks it, and on master deploys
+# it to GitHub Pages. Every diagram is computed by Trill: DiagramTests checks
+# the recorded runs against the engine, and check-site.mjs loads every page in
+# headless Chrome and requires each diagram to go live under .NET WASM with
+# output equal to its recorded run.
+
+on:
+  pull_request:
+    paths:
+      - 'docs/site/**'
+      - 'Sources/Core/**'
+      - '.github/workflows/pages.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'docs/site/**'
+      - 'Sources/Core/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
+  MDBOOK_VERSION: v0.5.3
+  MDBOOK_SHA256: e2fd508a4fac06cbaa9f88b97d27bdc3b55a08946304ca845879fe26a3699e11
+
+jobs:
+  build:
+    name: build and check the operator docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        id: setup
+        with:
+          dotnet-version: '10.0.x'
+      - name: Pin the installed SDK
+        run: dotnet new globaljson --sdk-version ${{ steps.setup.outputs.dotnet-version }} --roll-forward disable --force
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Install mdBook
+        run: |
+          curl -sSL -o mdbook.tar.gz "https://github.com/rust-lang/mdBook/releases/download/${MDBOOK_VERSION}/mdbook-${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${MDBOOK_SHA256}  mdbook.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf mdbook.tar.gz -C "$RUNNER_TEMP/bin"
+          rm mdbook.tar.gz
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Diagram tests
+        # Run the Microsoft.Testing.Platform executable directly: `dotnet test`
+        # on this project needs the SDK's MTP opt-in, which the repository's
+        # VSTest-based SimpleTesting does not use.
+        run: |
+          dotnet build docs/site/DiagramTests/DiagramTests.csproj -c Release
+          dotnet docs/site/DiagramTests/bin/Release/net10.0/DiagramTests.dll
+      - name: Build the book
+        run: bash docs/site/build.sh
+      - name: Check every page in headless Chrome
+        run: node docs/site/check-site.mjs docs/site/book google-chrome
+      - name: Upload the Pages artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/site/book
+
+  deploy:
+    name: deploy to GitHub Pages
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
