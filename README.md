@@ -1,11 +1,11 @@
 # Meshner's fork of Trill
 
-This is a fork of [microsoft/Trill](https://github.com/microsoft/Trill). I maintain it for Meshner, a .NET profiler that will use Trill's temporal operators to correlate code paths across event streams. Microsoft last released Trill in 2021. That release misidentifies .NET 7 and later as .NET Framework. On .NET 10, batch input failed in my tests. Per-event input appeared to run without generated code, with no warning about the fallback.
+This is a fork of [microsoft/Trill](https://github.com/microsoft/Trill). I maintain it for Meshner, a .NET profiler. Microsoft last released Trill in 2021. That release misidentifies .NET 7 and later as .NET Framework. On .NET 10, batch input failed in my tests. Per-event input appeared to run without generated code, with no warning about the fallback.
 
 The fork starts from Microsoft's `master` at commit `b3d6b9bb48`. Each change is kept small and separate, so that it can be offered back to microsoft/Trill as its own pull request. The plan, none of it done yet:
 
 - target .NET 10 (`net10.0`) only;
-- fix engine problems that Meshner's workloads hit, starting with hash mixing in `FastDictionary`;
+- fix engine problems, starting with hash mixing in `FastDictionary`;
 - publish the result as the NuGet package `Meshner.Trill`, keeping the namespace `Microsoft.StreamProcessing`.
 
 Some changes will come from Amir Burbea's modernisation fork ([amirburbea/Trill](https://github.com/amirburbea/Trill), branch `modernize-net10`), credited in each commit.
