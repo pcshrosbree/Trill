@@ -155,6 +155,8 @@ namespace Microsoft.StreamProcessing
             Monitor.Enter(this.sync);
             try
             {
+                // A batch whose caller lost the TryEnter race may still be queued; process it before flushing.
+                ProcessPendingBatches();
                 FlushContents();
                 this.Observer.OnFlush();
             }
