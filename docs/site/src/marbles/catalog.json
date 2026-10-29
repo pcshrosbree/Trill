@@ -1,0 +1,1271 @@
+[
+  {
+    "id": "where",
+    "title": "Where",
+    "category": "Filtering and projection",
+    "code": "input.Where(e =\u003E e.Value \u003E 1)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "select",
+    "title": "Select",
+    "category": "Filtering and projection",
+    "code": "input.Select(e =\u003E new Ev { Key = e.Key, Value = e.Value * 10 })",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "10"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "20"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "30"
+      }
+    ]
+  },
+  {
+    "id": "alter-event-duration",
+    "title": "AlterEventDuration",
+    "category": "Lifetimes and windows",
+    "code": "input.AlterEventDuration(3)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 4,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 5,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 7,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 7,
+        "end": 10,
+        "key": "b",
+        "label": "4"
+      },
+      {
+        "kind": "Interval",
+        "start": 9,
+        "end": 12,
+        "key": "a",
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "clip-event-duration",
+    "title": "ClipEventDuration",
+    "category": "Lifetimes and windows",
+    "code": "left.ClipEventDuration(right, l =\u003E l.Key, r =\u003E r.Key)",
+    "inputNames": [
+      "left",
+      "right"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ],
+      [
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 4,
+          "key": "a",
+          "label": "10"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "20"
+        },
+        {
+          "kind": "Interval",
+          "start": 10,
+          "end": 12,
+          "key": "a",
+          "label": "30"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 2,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 4,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "tumbling-window",
+    "title": "TumblingWindowLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.TumblingWindowLifetime(4)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 8,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 8,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 8,
+        "end": 12,
+        "key": "b",
+        "label": "4"
+      },
+      {
+        "kind": "Interval",
+        "start": 12,
+        "end": 16,
+        "key": "a",
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "hopping-window",
+    "title": "HoppingWindowLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.HoppingWindowLifetime(4, 2)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 6,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 6,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 8,
+        "end": 12,
+        "key": "b",
+        "label": "4"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 14,
+        "key": "a",
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "union",
+    "title": "Union",
+    "category": "Combining streams",
+    "code": "left.Union(right)",
+    "inputNames": [
+      "left",
+      "right"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ],
+      [
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 4,
+          "key": "a",
+          "label": "10"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "20"
+        },
+        {
+          "kind": "Interval",
+          "start": 10,
+          "end": 12,
+          "key": "a",
+          "label": "30"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 4,
+        "key": "a",
+        "label": "10"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 7,
+        "key": "b",
+        "label": "20"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 12,
+        "key": "a",
+        "label": "30"
+      }
+    ]
+  },
+  {
+    "id": "multicast",
+    "title": "Multicast",
+    "category": "Combining streams",
+    "code": "input.Multicast(s =\u003E s.Where(e =\u003E e.Key == \u0022a\u0022).Union(s.Where(e =\u003E e.Value \u003E 2)))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "join",
+    "title": "Join",
+    "category": "Joins",
+    "code": "left.Join(right, l =\u003E l.Key, r =\u003E r.Key,\n    (l, r) =\u003E new Out(l.Key, l.Value \u002B \u0022\u002B\u0022 \u002B r.Value))",
+    "inputNames": [
+      "left",
+      "right"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ],
+      [
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 4,
+          "key": "a",
+          "label": "10"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "20"
+        },
+        {
+          "kind": "Interval",
+          "start": 10,
+          "end": 12,
+          "key": "a",
+          "label": "30"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 4,
+        "key": "a",
+        "label": "1\u002B10"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 7,
+        "key": "b",
+        "label": "2\u002B20"
+      }
+    ]
+  },
+  {
+    "id": "left-outer-join",
+    "title": "LeftOuterJoin",
+    "category": "Joins",
+    "code": "left.LeftOuterJoin(right, l =\u003E l.Key, r =\u003E r.Key,\n    l =\u003E new Out(l.Key, l.Value \u002B \u0022\u002Bnone\u0022),\n    (l, r) =\u003E new Out(l.Key, l.Value \u002B \u0022\u002B\u0022 \u002B r.Value))",
+    "inputNames": [
+      "left",
+      "right"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ],
+      [
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 4,
+          "key": "a",
+          "label": "10"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "20"
+        },
+        {
+          "kind": "Interval",
+          "start": 10,
+          "end": 12,
+          "key": "a",
+          "label": "30"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": "a",
+        "label": "1\u002Bnone"
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 2,
+        "key": "a",
+        "label": "1\u002Bnone"
+      },
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 4,
+        "key": "a",
+        "label": "1\u002B10"
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": "b",
+        "label": "2\u002Bnone"
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 4,
+        "key": "b",
+        "label": "2\u002Bnone"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 5,
+        "key": "a",
+        "label": "1\u002Bnone"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 7,
+        "key": "b",
+        "label": "2\u002B20"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3\u002Bnone"
+      },
+      {
+        "kind": "Interval",
+        "start": 7,
+        "end": 9,
+        "key": "b",
+        "label": "2\u002Bnone"
+      }
+    ]
+  },
+  {
+    "id": "where-not-exists",
+    "title": "WhereNotExists",
+    "category": "Joins",
+    "code": "left.WhereNotExists(right, l =\u003E l.Key, r =\u003E r.Key)",
+    "inputNames": [
+      "left",
+      "right"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ],
+      [
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 4,
+          "key": "a",
+          "label": "10"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "20"
+        },
+        {
+          "kind": "Interval",
+          "start": 10,
+          "end": 12,
+          "key": "a",
+          "label": "30"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 2,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 4,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 5,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 7,
+        "end": 9,
+        "key": "b",
+        "label": "2"
+      }
+    ]
+  },
+  {
+    "id": "count",
+    "title": "Count (tumbling window)",
+    "category": "Aggregates",
+    "code": "input.TumblingWindowLifetime(4).Count()",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 8,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 8,
+        "end": 12,
+        "key": null,
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 12,
+        "end": 16,
+        "key": null,
+        "label": "1"
+      }
+    ]
+  },
+  {
+    "id": "sum",
+    "title": "Sum (hopping window)",
+    "category": "Aggregates",
+    "code": "input.HoppingWindowLifetime(4, 2).Sum(e =\u003E e.Value)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 2,
+        "end": null,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "End",
+        "start": 2,
+        "end": 4,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "Start",
+        "start": 4,
+        "end": null,
+        "key": null,
+        "label": "6"
+      },
+      {
+        "kind": "End",
+        "start": 4,
+        "end": 6,
+        "key": null,
+        "label": "6"
+      },
+      {
+        "kind": "Start",
+        "start": 6,
+        "end": null,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "End",
+        "start": 6,
+        "end": 8,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "Start",
+        "start": 8,
+        "end": null,
+        "key": null,
+        "label": "4"
+      },
+      {
+        "kind": "End",
+        "start": 8,
+        "end": 10,
+        "key": null,
+        "label": "4"
+      },
+      {
+        "kind": "Start",
+        "start": 10,
+        "end": null,
+        "key": null,
+        "label": "9"
+      },
+      {
+        "kind": "End",
+        "start": 10,
+        "end": 12,
+        "key": null,
+        "label": "9"
+      },
+      {
+        "kind": "Start",
+        "start": 12,
+        "end": null,
+        "key": null,
+        "label": "5"
+      },
+      {
+        "kind": "End",
+        "start": 12,
+        "end": 14,
+        "key": null,
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "group-apply",
+    "title": "GroupApply",
+    "category": "Aggregates",
+    "code": "input.TumblingWindowLifetime(5).GroupApply(e =\u003E e.Key,\n    g =\u003E g.Average(e =\u003E e.Value),\n    (g, avg) =\u003E new Out(g.Key, \u0022avg \u0022 \u002B avg))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": "b",
+        "label": "avg 2"
+      },
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": "a",
+        "label": "avg 2"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": "b",
+        "label": "avg 4"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": "a",
+        "label": "avg 5"
+      }
+    ]
+  },
+  {
+    "id": "detect",
+    "title": "Detect",
+    "category": "Patterns",
+    "code": "input.Detect(p =\u003E p\n        .SingleElement(e =\u003E e.Key == \u0022a\u0022)\n        .SingleElement(e =\u003E e.Key == \u0022b\u0022),\n    maxDuration: 4)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 5,
+        "key": null,
+        "label": "match"
+      },
+      {
+        "kind": "Interval",
+        "start": 7,
+        "end": 8,
+        "key": null,
+        "label": "match"
+      }
+    ]
+  }
+]
