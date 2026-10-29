@@ -12,9 +12,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 // shapes previously reported "columnar-representable" incorrectly: the columnar reconstitution
 // codegen assigns each field/autoprop by plain assignment, which an init-only setter, a
 // get-only autoprop, or a readonly field cannot accept - such a payload would report
-// CanRepresentAsColumnar() == true here and then fail (silently, without
-// Config.CodegenOptions.DontFallBackToRowBasedExecution) the first time a query actually tried
-// to generate the columnar batch for it.
+// CanRepresentAsColumnar() == true here and then fail the first time a query actually tried
+// to generate the columnar batch for it. Depending on the shape and on
+// Config.CodegenOptions.DontFallBackToRowBasedExecution, that meant a code generation error,
+// an exception after falling back, or (for a private get-only autoprop) a value silently lost.
 namespace SimpleTesting.ColumnarTests
 {
     [TestClass]
@@ -68,7 +69,7 @@ namespace SimpleTesting.ColumnarTests
 
         public record struct MutableRecordStruct(int A, string B);
 
-        // A positional record struct's auto-generated properties are init-only.
+        // A readonly positional record struct's auto-generated properties are init-only.
         public readonly record struct ReadonlyRecordStruct(int A, string B);
 
         public struct MutableFieldStruct
@@ -101,12 +102,27 @@ namespace SimpleTesting.ColumnarTests
 
         // A genuinely non-public autoprop with BOTH accessors present (as opposed to
         // EqualityContract's get-only shape) must still disqualify the type - the
-        // EqualityContract carve-out is narrowly for "non-public and no setter at all".
+        // EqualityContract carve-out is narrowly for "no setter and no backing field".
         public sealed class NonPublicBothAccessorsClass
         {
             internal int Hidden { get; set; }
 
             public int Exposed { get => this.Hidden; set => this.Hidden = value; }
+        }
+
+        // A non-public get-only autoprop has a backing field, unlike EqualityContract, so columnar
+        // reconstitution would lose its value.
+        public struct NonPublicGetOnlyAutoPropertyStruct
+        {
+            public int A;
+
+            public NonPublicGetOnlyAutoPropertyStruct(int a, int hidden)
+            {
+                this.A = a;
+                this.Hidden = hidden;
+            }
+
+            private int Hidden { get; }
         }
 
         [TestMethod]
@@ -172,5 +188,9 @@ namespace SimpleTesting.ColumnarTests
         [TestMethod]
         public void NonPublicAutopropWithBothAccessors_IsNotColumnarRepresentable() =>
             Assert.IsFalse(typeof(NonPublicBothAccessorsClass).CanRepresentAsColumnar());
+
+        [TestMethod]
+        public void NonPublicGetOnlyAutoProperty_IsNotColumnarRepresentable() =>
+            Assert.IsFalse(typeof(NonPublicGetOnlyAutoPropertyStruct).CanRepresentAsColumnar());
     }
 }
