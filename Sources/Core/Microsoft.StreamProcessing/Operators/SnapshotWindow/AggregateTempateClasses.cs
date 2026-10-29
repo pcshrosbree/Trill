@@ -264,11 +264,11 @@ namespace Microsoft.StreamProcessing
                 }
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("Aggregate", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }

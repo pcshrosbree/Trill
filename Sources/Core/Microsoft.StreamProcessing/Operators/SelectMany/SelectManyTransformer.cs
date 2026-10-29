@@ -176,11 +176,11 @@ namespace Microsoft.StreamProcessing
                 t = t.InstantiateAsNecessary(typeof(TKey), typeof(TPayload), typeof(TResult));
                 return Tuple.Create(t, errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("SelectMany", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }

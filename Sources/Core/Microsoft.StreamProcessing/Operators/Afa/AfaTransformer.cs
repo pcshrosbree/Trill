@@ -86,7 +86,7 @@ namespace Microsoft.StreamProcessing
             catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!", e);
+                    throw CodegenFailure.Create("Afa", errorMessages, e);
 
                 return Tuple.Create((Type)null, errorMessages);
             }

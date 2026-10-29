@@ -151,11 +151,11 @@ namespace Microsoft.StreamProcessing
                 var t = a.GetType(generatedClassName);
                 return Tuple.Create(t.InstantiateAsNecessary(typeOfTOuterKey, typeOfTSource, typeOfTInnerKey), errorMessages);
             }
-            catch
+            catch (Exception e)
             {
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                 {
-                    throw new InvalidOperationException("Code Generation failed when it wasn't supposed to!");
+                    throw CodegenFailure.Create("Shuffle", errorMessages, e);
                 }
                 return Tuple.Create((Type)null, errorMessages);
             }
