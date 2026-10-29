@@ -230,6 +230,17 @@ namespace SimpleTesting
             Assert.IsTrue(output.IsEquivalentTo(correct));
         }
 
+        [TestMethod, TestCategory("Gated")]
+        public void TestCountAggregate_SumAddsStates()
+        {
+            // Sum combines two partial counts, so it must add them. Difference must undo it.
+            var aggregate = new Microsoft.StreamProcessing.Aggregates.CountAggregate<int>();
+            var sum = aggregate.Sum().Compile();
+            var difference = aggregate.Difference().Compile();
 
+            Assert.AreEqual(7UL, sum(3, 4));
+            Assert.AreEqual(5UL, sum(0, 5));
+            Assert.AreEqual(3UL, difference(sum(3, 4), 4));
+        }
     }
 }
