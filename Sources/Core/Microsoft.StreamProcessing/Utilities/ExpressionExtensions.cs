@@ -535,33 +535,16 @@ namespace Microsoft.StreamProcessing
         {
             var t = node.Type;
             var v = node.Value;
-            if (t == typeof(bool))
+            var literal = LiteralText(v);
+            if (literal != null)
             {
-                var b = (bool)v;
-                if (b) this.writer.Write("true"); else this.writer.Write("false");
-                return null;
-            }
-            if (t == typeof(char))
-            {
-                this.writer.Write(string.Format(CultureInfo.InvariantCulture, "'{0}'", v));
+                this.writer.Write(literal);
                 return null;
             }
             var typeInfo = t.GetTypeInfo();
             if (typeof(Type).GetTypeInfo().IsAssignableFrom(typeInfo))
             {
                 this.writer.Write("typeof({0})", GetTypeName((Type)v));
-                return null;
-            }
-            if (node.Type.GetTypeInfo().IsEnum)
-            {
-                var remainingFlags = (Enum)v;
-                WriteDelimitedList(
-                    from name in Enum.GetNames(t)
-                    let y = (Enum)Enum.Parse(t, name, false)
-                    where remainingFlags.HasFlag(y)
-                    select GetTypeName(t) + "." + name,
-                    " | ");
-
                 return null;
             }
             if (!typeInfo.IsPrimitive && typeInfo.IsValueType && Nullable.GetUnderlyingType(t) == null && v.Equals(Activator.CreateInstance(t)))
@@ -573,28 +556,87 @@ namespace Microsoft.StreamProcessing
             }
 
             if (v == null) this.writer.Write("null");
-            else
-            {
-                if (t == typeof(string))
-                {
-                    var s = (string)v;
-                    this.writer.Write(ToLiteral(s));
-                }
-                else
-                {
-                    this.writer.Write(v.ToString());
-                    if (t == typeof(long)) this.writer.Write("L");
-                }
-            }
+            else this.writer.Write(Convert.ToString(v, CultureInfo.InvariantCulture));
             return null;
         }
 
-        private static string ToLiteral(string theString)
+        /// <summary>
+        /// Returns C# source that the compiler reads back as exactly <paramref name="value"/>, with the
+        /// same type, if that type has a C# literal form: <see cref="bool"/>, <see cref="char"/>,
+        /// <see cref="string"/>, a built-in numeric type or an enum. Returns null for any other type and for null.
+        /// The text never depends on the current culture.
+        /// </summary>
+        internal static string LiteralText(object value)
         {
-            var sn = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(theString));
-            string s = sn.ToString();
-            return s;
+            if (value == null) return null;
+            var type = value.GetType();
+            if (type.GetTypeInfo().IsEnum)
+            {
+                var underlying = Enum.GetUnderlyingType(type);
+                return "((" + GetTypeName(type) + ")" + LiteralText(Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture)) + ")";
+            }
+
+            switch (value)
+            {
+                case bool b: return b ? "true" : "false";
+                case char c: return CharLiteral(c);
+                case string s: return SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(s)).ToString();
+                case sbyte n: return "((sbyte)" + Invariant(n) + ")";
+                case byte n: return "((byte)" + Invariant(n) + ")";
+                case short n: return "((short)" + Invariant(n) + ")";
+                case ushort n: return "((ushort)" + Invariant(n) + ")";
+                case int n: return Signed(Invariant(n));
+                case uint n: return Invariant(n) + "U";
+                case long n: return Signed(Invariant(n) + "L");
+                case ulong n: return Invariant(n) + "UL";
+                case float f:
+                    if (float.IsNaN(f))
+                    {
+                        // A NaN other than float.NaN keeps its sign and payload by being rebuilt from its bits.
+                        var bits = BitConverter.SingleToInt32Bits(f);
+                        return bits == BitConverter.SingleToInt32Bits(float.NaN)
+                            ? "float.NaN"
+                            : "global::System.BitConverter.Int32BitsToSingle(" + Signed(Invariant(bits)) + ")";
+                    }
+                    if (float.IsPositiveInfinity(f)) return "float.PositiveInfinity";
+                    if (float.IsNegativeInfinity(f)) return "float.NegativeInfinity";
+                    return Signed(f.ToString("R", CultureInfo.InvariantCulture) + "F");
+                case double d:
+                    if (double.IsNaN(d))
+                    {
+                        var bits = BitConverter.DoubleToInt64Bits(d);
+                        return bits == BitConverter.DoubleToInt64Bits(double.NaN)
+                            ? "double.NaN"
+                            : "global::System.BitConverter.Int64BitsToDouble(" + Signed(Invariant(bits) + "L") + ")";
+                    }
+                    if (double.IsPositiveInfinity(d)) return "double.PositiveInfinity";
+                    if (double.IsNegativeInfinity(d)) return "double.NegativeInfinity";
+                    return Signed(d.ToString("R", CultureInfo.InvariantCulture) + "D");
+                case decimal m:
+                    {
+                        // Formatting drops the sign of a negative zero, and the compiler folds -0M to a positive
+                        // zero, so a negative zero is rebuilt with its sign and scale.
+                        var flags = decimal.GetBits(m)[3];
+                        var negativeZero = m == 0m && flags < 0;
+                        return negativeZero
+                            ? "new global::System.Decimal(0, 0, 0, true, " + Invariant((flags >> 16) & 0xFF) + ")"
+                            : Signed(Invariant(m) + "M");
+                    }
+                default: return null;
+            }
         }
+
+        private static string Invariant(IFormattable n) => n.ToString(null, CultureInfo.InvariantCulture);
+
+        // A negative literal is parenthesized. After a cast to a named type, such as an enum, an unparenthesized
+        // minus would read as a subtraction.
+        private static string Signed(string literal) => literal[0] == '-' ? "(" + literal + ")" : literal;
+
+        // Printable ASCII is written as itself, other characters as \u escapes.
+        private static string CharLiteral(char c)
+            => c >= ' ' && c <= '~' && c != '\'' && c != '\\'
+            ? "'" + c + "'"
+            : string.Format(CultureInfo.InvariantCulture, "'\\u{0:X4}'", (int)c);
 
         protected override Expression VisitDebugInfo(DebugInfoExpression node)
         {
