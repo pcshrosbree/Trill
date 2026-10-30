@@ -44,15 +44,14 @@ namespace Microsoft.StreamProcessing
             var typeOfTKey = typeof(TKey);
             var typeOfTInput = typeof(TInput);
 
-            if (!typeOfTInput.CanRepresentAsColumnar()) return false;
-            if (typeOfTKey.GetPartitionType() != null) return false;
+            if (!typeOfTInput.CanRepresentAsColumnar()) return RefuseType(typeOfTInput);
+            if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create(this.KeySelector.ExpressionToCSharp(), this.ResultSelector.ExpressionToCSharp());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupedWindowTemplate.Generate(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserver<Empty, TInput> GetPipe(IStreamObserver<Empty, TResult> observer)

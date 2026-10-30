@@ -36,15 +36,14 @@ namespace Microsoft.StreamProcessing
             var typeOfTKey = typeof(TKey);
             var typeOfTSource = typeof(TPayload);
 
-            if (!typeOfTSource.CanRepresentAsColumnar()) return false;
-            if (typeOfTKey.GetPartitionType() != null) return false;
+            if (!typeOfTSource.CanRepresentAsColumnar()) return RefuseType(typeOfTSource);
+            if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create(this.Predicate.ExpressionToCSharp());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => WhereTemplate.Generate(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<TKey, TPayload, TPayload> GetPipe(IStreamObserver<TKey, TPayload> observer)

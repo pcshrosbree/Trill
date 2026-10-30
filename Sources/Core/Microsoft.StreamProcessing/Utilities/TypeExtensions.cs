@@ -362,7 +362,13 @@ namespace Microsoft.StreamProcessing
         /// Returns true iff <paramref name="type"/> can be used as a *non* key
         /// type for code gen. (All types can be used as key types.)
         /// </summary>
-        public static bool CanRepresentAsColumnar(this Type type)
+        public static bool CanRepresentAsColumnar(this Type type) => type.ColumnarRefusal() == null;
+
+        /// <summary>
+        /// Returns null if <paramref name="type"/> can be used as a *non* key type for code gen,
+        /// as <see cref="CanRepresentAsColumnar"/>; otherwise the rule the type breaks.
+        /// </summary>
+        internal static string ColumnarRefusal(this Type type)
         {
             Contract.Requires(type != null);
 
@@ -370,37 +376,42 @@ namespace Microsoft.StreamProcessing
             // cannot be represented as columns.
             var typeInfo = type.GetTypeInfo();
             var fields = typeInfo.GetFields(BindingFlags.Public | BindingFlags.Instance);
-            if (fields.Any(f => f.FieldType.IsAnonymousTypeName())) return false;
+            var anonymousField = fields.FirstOrDefault(f => f.FieldType.IsAnonymousTypeName());
+            if (anonymousField != null) return "field " + anonymousField.Name + " has an anonymous type";
 
             // However, an anonymous type can be decomposed into its "fields" (NOTE: anonymous types
             // have public properties, not fields) as long as they themselves are not anonymous types.
             if (type.IsAnonymousTypeName())
             {
                 var props = typeInfo.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-                return props.All(p => !p.PropertyType.IsAnonymousTypeName());
+                var anonymousProperty = props.FirstOrDefault(p => p.PropertyType.IsAnonymousTypeName());
+                return anonymousProperty == null ? null : "property " + anonymousProperty.Name + " has an anonymous type";
             }
 
             // If the type isn't visible outside of its assembly, then code gen can't compile
             // since it has to have a reference to the type in the code.
             // Need to check this after the anonymous test because anonymous
             // types say they are not visible.
-            if (!type.IsVisible) return false;
+            if (!type.IsVisible) return "the type is not public";
 
             // The type must be an "open" container: that is, its state is just the value
             // of all of its fields and autoprops. Otherwise we cannot guarantee that we can
             // reconstitute a value from its columnar representation.
             if (!type.IsPrimitive)
             {
-                var allFields = type
+                var hiddenField = type
                     .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
                     .Where(f => !(f.Name.StartsWith("<", StringComparison.Ordinal) && f.Name.EndsWith(">k__BackingField", StringComparison.Ordinal))) // ignore backing fields for autoprops
-                    ;
-                if (allFields.Any()) return false;
+                    .FirstOrDefault();
+
+                // An F# record holds its state in non-public fields named "X@", so it stops here.
+                if (hiddenField != null) return "field " + hiddenField.Name + " is not public";
 
                 // A public instance field only works if columnar reconstitution can assign it
                 // directly; a readonly field (as in a "readonly struct" or a hand-written
                 // immutable type) can only be set from a constructor, which we do not generate.
-                if (fields.Any(f => f.IsInitOnly)) return false;
+                var readOnlyField = fields.FirstOrDefault(f => f.IsInitOnly);
+                if (readOnlyField != null) return "field " + readOnlyField.Name + " is read-only";
 
                 // Check only the autoprops: any non-autoprop will not be able to depend on non-public fields
                 // due to the check for non-public fields.
@@ -419,36 +430,37 @@ namespace Microsoft.StreamProcessing
                         // A compiler-generated getter without a backing field holds no state:
                         // every `record` (but not `record struct`) synthesizes one,
                         // `protected virtual Type EqualityContract => typeof(T);`.
-                        if (HasAutoPropertyBackingField(p)) return false;
+                        if (HasAutoPropertyBackingField(p)) return "property " + p.Name + " has no setter";
                         continue;
                     }
                     if (!setMethod.IsDefined(typeof(CompilerGeneratedAttribute))) continue;
 
                     // p is definitely an autoprop. Cannot columnarize if the property is not visible.
-                    if (!(getMethod.IsPublic && setMethod.IsPublic)) return false;
+                    if (!(getMethod.IsPublic && setMethod.IsPublic)) return "property " + p.Name + " is not public";
 
                     // An init-only setter (`{ get; init; }`) has IsExternalInit among its return
                     // parameter's required custom modifiers. It is public and compiler-generated
                     // like a normal autoprop setter, but callable only from a constructor or an
                     // object initializer - not from the plain assignment columnar reconstitution
                     // generates - so it must be excluded explicitly.
+                    // A C# positional record's properties have init-only setters, so it stops here.
                     if (setMethod.ReturnParameter.GetRequiredCustomModifiers().Contains(typeof(IsExternalInit)))
-                        return false;
+                        return "property " + p.Name + " has an init-only setter";
                 }
             }
 
             if (type.IsValueType) // we can always create instances of a struct
-                return true;
+                return null;
 
             if (type.IsAbstract || type.IsInterface) // until we determine how we do columnar over a polymorphic set, we cannot do columnar over an abstract type or an interface
-                return false;
+                return "the type is abstract or an interface";
 
             // otherwise it must have a nullary ctor that can be called
             // when a query cannot be transformed to a columnar representation
             // (and so instances of the type must be dynamically generated
             // as part of the query processing)
             var ctor = type.GetConstructor(Type.EmptyTypes);
-            return ctor != null;
+            return ctor != null ? null : "the type has no public parameterless constructor";
         }
 
         public static Type GetPartitionType(this Type type)

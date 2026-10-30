@@ -127,21 +127,20 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
 
 <#  if (!partitioned)
     { #>
-            if (Config.ForceRowBasedExecution
-<#      if (fused)
-        { #>
-                || !typeof(TResult).CanRepresentAsColumnar()
-                || typeof(TResult).IsAnonymousTypeName()
-<#      } #>
-                || !typeof(TPayload).CanRepresentAsColumnar()
-                || typeof(TPayload).IsAnonymousTypeName())
+            if (Config.ForceRowBasedExecution)
             {
                 this.properties = properties.ToRowBased();
             }
-            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnar);
+            else if (!CanStartColumnar())
+            {
+                ReportRowMode();
+                this.properties = properties.ToRowBased();
+            }
+            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnarOrReport);
 <#  }
     else
     { #>
+            RowMode.Report(this, RowModeRefusal.Partitioned, atSubscribe: false);
             this.properties = properties.ToRowBased();
 <#  } #>
         }
@@ -262,9 +261,31 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
                     disorderPolicy.type != DisorderPolicyType.Throw && <#= fused ? "entryPoint." : string.Empty #>diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
+<#  if (!partitioned)
+    { #>
+
+        // The stream's properties ask this once, when an operator after the ingress first reads IsColumnar.
+        private bool CanGenerateColumnarOrReport()
+        {
+            if (CanGenerateColumnar()) return true;
+            ReportRowMode();
+            return false;
+        }
+
+        private bool CanStartColumnar()
+        {
+<#      if (fused)
+        { #>
+            if (!typeof(TResult).CanRepresentAsColumnar()) return RefuseType(typeof(TResult));
+            if (typeof(TResult).IsAnonymousTypeName()) return RefuseUnsupported("the ingress result type is an anonymous type");
+<#      } #>
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (typeof(TPayload).IsAnonymousTypeName()) return RefuseUnsupported("the ingress payload type is an anonymous type");
+            return true;
+        }
+<#  } #>
 
         private IIngressStreamObserver GetPipe(IStreamObserver<<#= keyType #>, <#= outputType #>> observer)
         {

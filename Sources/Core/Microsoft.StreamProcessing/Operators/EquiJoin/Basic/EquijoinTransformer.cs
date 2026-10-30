@@ -281,7 +281,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("EquiJoin", errorMessages, e);
                 }
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
 

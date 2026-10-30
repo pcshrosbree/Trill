@@ -99,7 +99,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalArrayEgress", errorMessages, e);
                 }
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
 
@@ -147,7 +147,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalArrayEgress", errorMessages, e);
                 }
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
 
@@ -196,7 +196,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalArrayEgress", errorMessages, e);
                 }
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
 
@@ -235,7 +235,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalArrayEgress", errorMessages, e);
                 }
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
 
@@ -284,7 +284,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalArrayEgress", errorMessages, e);
                 }
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
 
@@ -334,7 +334,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalArrayEgress", errorMessages, e);
                 }
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
     }

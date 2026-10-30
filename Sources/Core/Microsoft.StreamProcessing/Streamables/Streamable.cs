@@ -58,6 +58,40 @@ namespace Microsoft.StreamProcessing
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected string errorMessages;
         #endregion
+
+        // Why CanGenerateColumnar last refused, for the row-mode report. Null if it recorded nothing.
+        internal RowModeRefusal rowModeRefusal;
+
+        // Each records a refusal and returns false, so that CanGenerateColumnar can "return Refuse...(...)".
+        internal bool RefuseType(Type type)
+        {
+            this.rowModeRefusal = RowModeRefusal.TypeNotColumnar(type);
+            return false;
+        }
+
+        internal bool RefusePartitioned()
+        {
+            this.rowModeRefusal = RowModeRefusal.Partitioned;
+            return false;
+        }
+
+        internal bool RefuseUnsupported(string detail)
+        {
+            this.rowModeRefusal = RowModeRefusal.NotSupported(detail);
+            return false;
+        }
+
+        // Takes the result of a generator: keeps its diagnostics, and records a refusal if it failed.
+        internal bool Generated(Tuple<Type, string> generated)
+        {
+            this.errorMessages = generated.Item2;
+            if (generated.Item1 != null) return true;
+            this.rowModeRefusal = RowModeRefusal.CodeGenerationFailed(generated);
+            return false;
+        }
+
+        // Called where the operator switches to row mode.
+        internal void ReportRowMode(bool atSubscribe = false) => RowMode.Report(this, this.rowModeRefusal, atSubscribe);
     }
 
     [ContractClassFor(typeof(Streamable<,>))]

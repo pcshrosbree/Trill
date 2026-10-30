@@ -53,23 +53,22 @@ namespace Microsoft.StreamProcessing
                 this.errorMessages = $"The payload type, '{typeof(TLeft).FullName}', to Left Antisemijoin does not implement the interface {nameof(IEqualityComparerExpression<TLeft>)}. This interface is needed for code generation of this operator for columnar mode. Furthermore, the equality expression in the interface can only refer to input variables if used in field or property references.";
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                     throw new StreamProcessingException(this.errorMessages);
-                return false;
+                return RefuseUnsupported(this.errorMessages);
             }
 
             var typeOfTKey = typeof(TKey);
             var typeOfTLeft = typeof(TLeft);
             var typeOfTRight = typeof(TRight);
 
-            if (!typeOfTLeft.CanRepresentAsColumnar()) return false;
-            if (!typeOfTRight.CanRepresentAsColumnar()) return false;
-            if (typeOfTKey.GetPartitionType() != null) return false;
+            if (!typeOfTLeft.CanRepresentAsColumnar()) return RefuseType(typeOfTLeft);
+            if (!typeOfTRight.CanRepresentAsColumnar()) return RefuseType(typeOfTRight);
+            if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create(this.Properties.KeyEqualityComparer.GetEqualsExpr().ToString(), this.LeftComparer.GetEqualsExpr().ToString());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => LeftAntiSemiJoinTemplate.Generate(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private BinaryPipe<TKey, TLeft, TRight, TLeft> GetPipe(IStreamObserver<TKey, TLeft> observer, bool leftIsConstantDuration, bool rightIsConstantDuration)

@@ -132,6 +132,38 @@ namespace Microsoft.StreamProcessing
             }
         }
 
+        private static Action<RowModeReport> rowModeReporter;
+        private static long rowModeReporterFailures;
+
+        /// <summary>
+        /// Called each time an operator falls back to row mode because it cannot run columnar.
+        /// It is called on the thread that builds or subscribes to the query, at the moment the
+        /// operator decides, and never while data flows. It is process-wide: it sees reports from
+        /// every query, and may be called on several threads at once.
+        /// </summary>
+        /// <remarks>
+        /// There is one report for each decision, with no deduplication: a query built twice reports
+        /// twice. Map-reduce builds its query once in its constructor and again at Subscribe, and
+        /// Multicast builds its selector once to derive the stream's properties, so each of those
+        /// builds reports. No reports are made when <see cref="ForceRowBasedExecution"/> is set.
+        /// A shuffle with more than one reduce branch reports at Subscribe, but still advertises a
+        /// columnar stream to the operators after it. An exception thrown by the hook is caught and
+        /// counted in <see cref="RowModeReporterFailures"/>, and the query is built as usual.
+        /// </remarks>
+        public static Action<RowModeReport> RowModeReporter
+        {
+            get => Volatile.Read(ref rowModeReporter);
+            set => Volatile.Write(ref rowModeReporter, value);
+        }
+
+        /// <summary>
+        /// The number of exceptions thrown by <see cref="RowModeReporter"/>, which are caught so that
+        /// the query is still built.
+        /// </summary>
+        public static long RowModeReporterFailures => Interlocked.Read(ref rowModeReporterFailures);
+
+        internal static void CountRowModeReporterFailure() => Interlocked.Increment(ref rowModeReporterFailures);
+
         /// <summary>
         /// Allow the reorder policy to be applied later in the query than the ingress site, or possibly not at all if it is not required by the query.
         /// </summary>

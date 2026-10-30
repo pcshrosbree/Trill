@@ -56,16 +56,15 @@ namespace Microsoft.StreamProcessing
             var typeOfTLeft = typeof(TLeft);
             var typeOfTRight = typeof(TRight);
 
-            if (!typeOfTLeft.CanRepresentAsColumnar()) return false;
-            if (!typeOfTRight.CanRepresentAsColumnar()) return false;
-            if (typeOfTKey.GetPartitionType() != null) return false;
+            if (!typeOfTLeft.CanRepresentAsColumnar()) return RefuseType(typeOfTLeft);
+            if (!typeOfTRight.CanRepresentAsColumnar()) return RefuseType(typeOfTRight);
+            if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create(this.Properties.KeyEqualityComparer.GetEqualsExpr().ToString(), this.LeftComparer.GetEqualsExpr().ToString());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ClipJoinTemplate.Generate(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private BinaryPipe<TKey, TLeft, TRight, TLeft> GetPipe(IStreamObserver<TKey, TLeft> observer)

@@ -20,7 +20,7 @@ namespace Microsoft.StreamProcessing
             var p = StreamProperties<Empty, TPayload>.Default;
             if (Config.ForceRowBasedExecution || !typeof(TPayload).CanRepresentAsColumnar())
                 p = p.ToRowBased();
-            return new StreamMessageIngressStreamable<TPayload>(source, p, null, null);
+            return ReportIfRowMode(new StreamMessageIngressStreamable<TPayload>(source, p, null, null));
         }
 
         /// <summary>
@@ -34,7 +34,14 @@ namespace Microsoft.StreamProcessing
             var p = StreamProperties<Empty, TPayload>.Default;
             if (Config.ForceRowBasedExecution || !typeof(TPayload).CanRepresentAsColumnar())
                 p = p.ToRowBased();
-            return new StreamMessageIngressStreamable<TPayload>(source, p, container, identifier ?? Guid.NewGuid().ToString());
+            return ReportIfRowMode(new StreamMessageIngressStreamable<TPayload>(source, p, container, identifier ?? Guid.NewGuid().ToString()));
+        }
+
+        private static IStreamable<Empty, TPayload> ReportIfRowMode<TPayload>(StreamMessageIngressStreamable<TPayload> ingress)
+        {
+            if (!typeof(TPayload).CanRepresentAsColumnar())
+                RowMode.Report(ingress, RowModeRefusal.TypeNotColumnar(typeof(TPayload)), atSubscribe: false);
+            return ingress;
         }
     }
 }

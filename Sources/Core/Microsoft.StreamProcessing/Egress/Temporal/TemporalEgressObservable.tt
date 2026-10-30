@@ -71,11 +71,24 @@ foreach (string ingressType in new string[] { "StreamEvent", "StartEdge", "Inter
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<<#= egress #>> observer)
+        public IDisposable Subscribe(IObserver<<#= egress #>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<<#= egress #>> observer)
         {
             EgressBoundary<<#= inputKey #>, TPayload, <#= egress #>> pipe;
 
-            if (!Config.ForceRowBasedExecution && this.source.Properties.IsColumnar && typeof(TPayload).CanRepresentAsColumnar() && CanGenerateColumnar())
+            var columnar = !Config.ForceRowBasedExecution && this.source.Properties.IsColumnar;
+            if (columnar)
+            {
+                var refusal = ColumnarRefusal();
+                if (refusal != null)
+                {
+                    RowMode.Report(this, refusal, atSubscribe: true);
+                    columnar = false;
+                }
+            }
+
+            if (columnar)
                 pipe = GetPipe(observer);
             else
             {
@@ -96,16 +109,20 @@ foreach (string ingressType in new string[] { "StreamEvent", "StartEdge", "Inter
                 if (!string.IsNullOrEmpty(partitionString)) {#>, typeof(TKey)<# }
                 #>, "<#= ingressType #>");
 
-        private bool CanGenerateColumnar()
+        // Null if the egress can use generated code; otherwise why not.
+        private RowModeRefusal ColumnarRefusal()
         {
-            if (<#= !string.IsNullOrEmpty(partitionString) ? "typeof(TKey).IsAnonymousTypeName() || " : string.Empty #>typeof(TPayload).IsAnonymousTypeName()<#= ingressType != "StreamEvent" ? " || typeof(TResult).IsAnonymousTypeName()" : string.Empty#>) return false;
-            if (<#= !string.IsNullOrEmpty(partitionString) ? "!typeof(TKey).GetTypeInfo().IsVisible || " : string.Empty #>!typeof(TPayload).GetTypeInfo().IsVisible<#= ingressType != "StreamEvent" ? " || !typeof(TResult).GetTypeInfo().IsVisible" : string.Empty#>) return false;
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RowModeRefusal.TypeNotColumnar(typeof(TPayload));
+            if (<#= !string.IsNullOrEmpty(partitionString) ? "typeof(TKey).IsAnonymousTypeName() || " : string.Empty #>typeof(TPayload).IsAnonymousTypeName()<#= ingressType != "StreamEvent" ? " || typeof(TResult).IsAnonymousTypeName()" : string.Empty#>)
+                return RowModeRefusal.NotSupported("the egress output uses an anonymous type");
+            if (<#= !string.IsNullOrEmpty(partitionString) ? "!typeof(TKey).GetTypeInfo().IsVisible || " : string.Empty #>!typeof(TPayload).GetTypeInfo().IsVisible<#= ingressType != "StreamEvent" ? " || !typeof(TResult).GetTypeInfo().IsVisible" : string.Empty#>)
+                return RowModeRefusal.NotSupported("the egress output uses a type that is not public");
 
             var lookupKey = CachedPipeLookupKey();
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => TemporalEgressTemplate.Generate(this));
 
             this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return generatedPipeType.Item1 != null ? null : RowModeRefusal.CodeGenerationFailed(generatedPipeType);
         }
 
         private EgressBoundary<<#= inputKey #>, TPayload, <#= egress #>> GetPipe(IObserver<<#= egress #>> observer)

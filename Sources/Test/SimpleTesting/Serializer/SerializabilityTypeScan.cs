@@ -129,6 +129,7 @@ namespace SimpleTesting
             typeof(QueryContainer),
             typeof(Process),
             typeof(ConfigModifier),
+            typeof(RowModeReport), // passed to a hook while a query is built; never part of a stream or checkpoint
             typeof(Afa<,,>),
             typeof(Arc<,>),
             typeof(SingleElementArc<,>),

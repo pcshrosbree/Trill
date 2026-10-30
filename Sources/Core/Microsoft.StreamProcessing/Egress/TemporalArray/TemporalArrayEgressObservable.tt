@@ -74,7 +74,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<<#= egress #>>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<<#= egress #>>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<<#= egress #>>> observer)
         {
             var pipe = new <#= partitionString #><#= ingressType #>ArrayEgressPipe<<#= genericArguments #><#= argumentSuffix #>>(
                 this.generator,

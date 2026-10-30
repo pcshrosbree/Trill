@@ -166,7 +166,7 @@ namespace Microsoft.StreamProcessing
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                     throw CodegenFailure.Create("Select", errorMessages, e);
 
-                return Tuple.Create((Type)null, errorMessages);
+                return CodegenFailure.Fallback(errorMessages, e);
             }
         }
     }

@@ -42,6 +42,7 @@ namespace Microsoft.StreamProcessing
             {
                 if (!CanGenerateColumnar())
                 {
+                    ReportRowMode();
                     this.properties = this.properties.ToRowBased();
                     this.Left = this.Left.ColumnToRow();
                     this.Right = this.Right.ColumnToRow();

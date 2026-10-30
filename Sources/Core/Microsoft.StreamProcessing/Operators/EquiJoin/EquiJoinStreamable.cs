@@ -153,7 +153,7 @@ namespace Microsoft.StreamProcessing
                 this.errorMessages = $"The left input payload type, '{typeof(TLeft).FullName}', to Equijoin does not implement the interface {nameof(IEqualityComparerExpression<TLeft>)}. This interface is needed for code generation of this operator for columnar mode. Furthermore, the equality expression in the interface can only refer to input variables if used in field or property references.";
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                     throw new StreamProcessingException(this.errorMessages);
-                return false;
+                return RefuseUnsupported(this.errorMessages);
             }
 
             // This operator uses the equality method on payloads
@@ -162,17 +162,16 @@ namespace Microsoft.StreamProcessing
                 this.errorMessages = $"The right input payload type, '{typeof(TRight).FullName}', to Equijoin does not implement the interface {nameof(IEqualityComparerExpression<TRight>)}. This interface is needed for code generation of this operator for columnar mode. Furthermore, the equality expression in the interface can only refer to input variables if used in field or property references.";
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                     throw new StreamProcessingException(this.errorMessages);
-                return false;
+                return RefuseUnsupported(this.errorMessages);
             }
 
-            if (!typeof(TResult).CanRepresentAsColumnar()) return false;
+            if (!typeof(TResult).CanRepresentAsColumnar()) return RefuseType(typeof(TResult));
 
             var lookupKey = CacheKey.Create(this.joinKind, this.Properties.KeyEqualityComparer.GetEqualsExpr().ExpressionToCSharp(), this.Left.Properties.PayloadEqualityComparer.GetEqualsExpr().ExpressionToCSharp(), this.Right.Properties.PayloadEqualityComparer.GetEqualsExpr().ExpressionToCSharp(), this.Selector.ExpressionToCSharp());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, this.columnarGenerator);
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private BinaryPipe<TKey, TLeft, TRight, TResult> GetPipe(IStreamObserver<TKey, TResult> observer)

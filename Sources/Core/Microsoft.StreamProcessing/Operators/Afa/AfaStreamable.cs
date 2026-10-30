@@ -170,15 +170,14 @@ namespace Microsoft.StreamProcessing
 
         private bool CanGenerateUngroupedAFAPipe()
         {
-            if (!typeof(TPayload).CanRepresentAsColumnar()) return false;
-            if (!typeof(TRegister).CanRepresentAsColumnar()) return false;
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (!typeof(TRegister).CanRepresentAsColumnar()) return RefuseType(typeof(TRegister));
 
             var lookupKey = CacheKey.Create((object)this.afa);
             var downcast = this as AfaStreamable<Empty, TPayload, TRegister, TAccumulator>;
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => UngroupedAfaTemplate.GenerateAFA(downcast));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<Empty, TPayload, TRegister> GetUngroupedAFAPipe(IStreamObserver<Empty, TRegister> observer)
@@ -194,16 +193,15 @@ namespace Microsoft.StreamProcessing
 
         private bool CanGenerateGroupedAFAPipe()
         {
-            if (!typeof(TPayload).CanRepresentAsColumnar()) return false;
-            if (!typeof(TRegister).CanRepresentAsColumnar()) return false;
-            if (typeof(TKey).GetPartitionType() != null) return false;
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (!typeof(TRegister).CanRepresentAsColumnar()) return RefuseType(typeof(TRegister));
+            if (typeof(TKey).GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create((object)this.afa);
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupedAfaTemplate.GenerateAFA(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<TKey, TPayload, TRegister> GetGroupedAFAPipe(IStreamObserver<TKey, TRegister> observer)
@@ -218,15 +216,14 @@ namespace Microsoft.StreamProcessing
 
         private bool CanGenerateUngroupedDAfaPipe()
         {
-            if (!typeof(TPayload).CanRepresentAsColumnar()) return false;
-            if (!typeof(TRegister).CanRepresentAsColumnar()) return false;
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (!typeof(TRegister).CanRepresentAsColumnar()) return RefuseType(typeof(TRegister));
 
             var lookupKey = CacheKey.Create((object)this.afa);
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => UngroupedDAfaTemplate.GenerateAFA(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<Empty, TPayload, TRegister> GetUngroupedDAfaPipe(IStreamObserver<Empty, TRegister> observer)
@@ -241,16 +238,15 @@ namespace Microsoft.StreamProcessing
 
         private bool CanGenerateGroupedAFAEventListPipe()
         {
-            if (!typeof(TPayload).CanRepresentAsColumnar()) return false;
-            if (!typeof(TRegister).CanRepresentAsColumnar()) return false;
-            if (typeof(TKey).GetPartitionType() != null) return false;
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (!typeof(TRegister).CanRepresentAsColumnar()) return RefuseType(typeof(TRegister));
+            if (typeof(TKey).GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create((object)this.afa);
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupedAfaEventListTemplate.GenerateAFA(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<TKey, TPayload, TRegister> GetGroupedAFAEventListPipe(IStreamObserver<TKey, TRegister> observer)
@@ -265,16 +261,15 @@ namespace Microsoft.StreamProcessing
 
         private bool CanGenerateGroupedAFAMultiEventPipe()
         {
-            if (!typeof(TPayload).CanRepresentAsColumnar()) return false;
-            if (!typeof(TRegister).CanRepresentAsColumnar()) return false;
-            if (typeof(TKey).GetPartitionType() != null) return false;
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (!typeof(TRegister).CanRepresentAsColumnar()) return RefuseType(typeof(TRegister));
+            if (typeof(TKey).GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create((object)this.afa);
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupedAfaMultiEventTemplate.GenerateAFA(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<TKey, TPayload, TRegister> GetGroupedAFAMultiEventPipe(IStreamObserver<TKey, TRegister> observer)
@@ -289,16 +284,15 @@ namespace Microsoft.StreamProcessing
 
         private bool CanGenerateAFAMultiEventListPipe()
         {
-            if (!typeof(TPayload).CanRepresentAsColumnar()) return false;
-            if (!typeof(TRegister).CanRepresentAsColumnar()) return false;
-            if (typeof(TKey).GetPartitionType() != null) return false;
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (!typeof(TRegister).CanRepresentAsColumnar()) return RefuseType(typeof(TRegister));
+            if (typeof(TKey).GetPartitionType() != null) return RefusePartitioned();
 
             var lookupKey = CacheKey.Create((object)this.afa);
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => AfaMultiEventListTemplate.GenerateAFA(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<TKey, TPayload, TRegister> GetAFAMultiEventListPipe(IStreamObserver<TKey, TRegister> observer)
