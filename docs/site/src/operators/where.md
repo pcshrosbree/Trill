@@ -8,4 +8,4 @@ Lifetimes pass through unchanged: an event either appears in the output with its
 
 In the diagram, `a:1` fails `Value > 1` and is dropped; `b:2` and `a:3` keep their lifetimes `[3,9)` and `[6,8)`.
 
-**See also:** [Select](select.md), [WhereNotExists](where-not-exists.md)
+**See also:** [Select](select.md), [Distinct](distinct.md), [SelectMany](select-many.md), [WhereNotExists](where-not-exists.md)
