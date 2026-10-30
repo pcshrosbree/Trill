@@ -13,6 +13,30 @@ public sealed class Ev
 /// <summary>Output payload for diagrams whose result is not an <see cref="Ev"/>: a key and a display label.</summary>
 public sealed record Out(string Key, string Label);
 
+/// <summary>Pivot's output: the group's key and one field per attribute. Pivot fills each field whose name equals an attribute.</summary>
+public sealed class Totals
+{
+    public string Key;
+    public int Odd;
+    public int Even;
+}
+
+/// <summary>Unpivot's input: a key and two values. Unpivot turns each value field into one <see cref="Triple"/>.</summary>
+public sealed class Pair
+{
+    public string Key;
+    public int? Low;
+    public int? High;
+}
+
+/// <summary>Unpivot's output: the key, the name of the field the value came from, and the value.</summary>
+public sealed class Triple
+{
+    public string Key;
+    public string Attribute;
+    public int Value;
+}
+
 /// <summary>
 /// One event as a diagram sees it. <c>Kind</c> is Trill's <c>StreamEventKind</c>
 /// (<c>Interval</c>, <c>Start</c> or <c>End</c>). <c>End</c> is null for a start

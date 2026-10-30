@@ -12,6 +12,60 @@ public sealed class EvTwice
     public int Twice;
 }
 
+/// <summary>pivot.md's known issue with Average: the fields hold the aggregate's double result.</summary>
+public sealed class AverageTotals
+{
+    public string Key;
+    public double Odd;
+    public double Even;
+}
+
+/// <summary>pivot.md: an int key that the int Sum overwrites.</summary>
+public sealed class IntKeyed
+{
+    public int Key;
+    public int Value;
+}
+
+/// <summary>pivot.md: the output for <see cref="IntKeyed"/>.</summary>
+public sealed class IntTotals
+{
+    public int Key;
+    public int Odd;
+}
+
+/// <summary>unpivot.md: a value field of type object, which an int input field cannot be unpivoted into.</summary>
+public sealed class ObjectTriple
+{
+    public string Key;
+    public string Attribute;
+    public object Value;
+}
+
+/// <summary>unpivot.md's known issue: int fields are never unpivoted.</summary>
+public sealed class IntPair
+{
+    public string Key;
+    public int Low;
+    public int High;
+}
+
+/// <summary>unpivot.md's known issue: nullable properties are handled the wrong way round.</summary>
+public sealed class PropPair
+{
+    public string Key { get; set; }
+    public int? Low { get; set; }
+    public int? High { get; set; }
+}
+
+/// <summary>unpivot.md: a string field does not fit an int value field and is not unpivoted.</summary>
+public sealed class PairWithNote
+{
+    public string Key;
+    public int? Low;
+    public string Note;
+}
+
 /// <summary>row-mode.md's property-order claim: First breaks the init-only rule, Second the no-setter rule.</summary>
 public sealed class InitThenGetOnly
 {
@@ -250,6 +304,170 @@ public sealed class PageClaimTests
             Config.RowModeReporter = null;
             Config.ForceRowBasedExecution = true;
         }
+    }
+
+    // select-many-by-key.md: the "(start, key, payload)" overload.
+    [TestMethod]
+    public void SelectManyByKeyStartTimeForm()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 5, "a", 1), I(3, 9, "b", 2)]);
+        Assert.AreEqual("Interval[1,5)a:1@1 in a Interval[3,9)b:2@3 in b",
+            Show(Operators.Collect(input.GroupApply(e => e.Key,
+                g => g.SelectManyByKey((start, k, e) => new[] { new Out(k.InnerGroup, e.Value + "@" + start + " in " + k.InnerGroup) }),
+                (g, r) => r))));
+    }
+
+    static IStreamable<Empty, Totals> PivotParity(IStreamable<Empty, Ev> s) =>
+        s.Pivot(() => new Totals(), e => e.Key, e => e.Value % 2 == 0 ? "Even" : "Odd", e => e.Value, w => w.Sum(v => v));
+
+    static string ShowEdges(List<EventDto> events) =>
+        string.Join(" ", events.Select(e => $"{e.Kind[0]}[{e.Start},{e.End?.ToString() ?? "inf"}){e.Key}:{e.Label}"));
+
+    // pivot.md, known issue: with interval events and Sum, "over a:1 [1,6) and a:3 [3,8), Pivot reports
+    // odd 0 from 6 to 8, where the right answer is odd 3", and "GroupApply with a Where per attribute and the aggregate gives the
+    // right values". This pins the engine defect as it is today: when it is fixed, this test fails,
+    // and pivot.md's known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    public void PivotKnownIssueZeroesAGroupWhenOneEventEnds()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 3)]);
+        Assert.AreEqual("S[1,inf)a:odd 1, even 0 E[1,3)a:odd 1, even 0 S[3,inf)a:odd 4, even 0 E[3,6)a:odd 4, even 0 S[6,inf)a:odd 0, even 0 E[6,8)a:odd 0, even 0",
+            ShowEdges(Operators.Collect(PivotParity(input))));
+        Assert.AreEqual("S[1,inf)a:odd 1 E[1,3)a:odd 1 S[3,inf)a:odd 4 E[3,6)a:odd 4 S[6,inf)a:odd 3 E[6,8)a:odd 3",
+            ShowEdges(Operators.Collect(input.GroupApply(e => e.Key,
+                g => g.Where(e => e.Value % 2 == 1).Sum(e => e.Value), (g, s) => new Out(g.Key, "odd " + s)))));
+    }
+
+    // pivot.md, known issue, scope: the same events as separate start and end edges give the right
+    // answer (the ending takes a different path), and with Average the wrong value is NaN, not 0.
+    [TestMethod]
+    public void PivotKnownIssueScope()
+    {
+        Config.ForceRowBasedExecution = true;
+        var edges = new[]
+        {
+            StreamEvent.CreateStart(1, new Ev { Key = "a", Value = 1 }),
+            StreamEvent.CreateStart(3, new Ev { Key = "a", Value = 3 }),
+            StreamEvent.CreateEnd(6, 1, new Ev { Key = "a", Value = 1 }),
+            StreamEvent.CreateEnd(8, 3, new Ev { Key = "a", Value = 3 }),
+        }.ToObservable().ToStreamable();
+        StringAssert.Contains(ShowEdges(Operators.Collect(PivotParity(edges))), "S[6,inf)a:odd 3, even 0");
+
+        var intervals = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 3)]);
+        var averages = new List<StreamEvent<AverageTotals>>();
+        intervals.Pivot(() => new AverageTotals(), e => e.Key, e => e.Value % 2 == 0 ? "Even" : "Odd", e => e.Value,
+                w => w.Average(v => v))
+            .ToStreamEventObservable().Where(e => e.IsData).Subscribe(averages.Add);
+        Assert.AreEqual(2.0, averages.First(e => e.StartTime == 3 && e.IsStart).Payload.Odd);
+        Assert.IsTrue(double.IsNaN(averages.First(e => e.StartTime == 6 && e.IsStart).Payload.Odd));
+    }
+
+    // pivot.md, known issue: "Whether the result is wrong, and by how much, depends on the aggregate,
+    // the values, and any event of the group that starts at the same moment". With a:5 starting at 6,
+    // Sum reports 5 over [6,8), not 0; the right answer is 8. With a surviving a:0 instead, the
+    // zeroed state happens to be the right answer.
+    [TestMethod]
+    public void PivotKnownIssueDependsOnAnEventStartingAtTheEnd()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 3), I(6, 8, "a", 5)]);
+        StringAssert.Contains(ShowEdges(Operators.Collect(PivotParity(input))), "S[6,inf)a:odd 5, even 0");
+
+        var zero = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 0)]);
+        StringAssert.Contains(ShowEdges(Operators.Collect(PivotParity(zero))), "S[6,inf)a:odd 0, even 0");
+    }
+
+    // pivot.md: "If the key field's type can also hold the aggregate's result, Pivot fills that field as
+    // an attribute field too, which overwrites the key: an int key with Sum comes out as 0 when no
+    // event's attribute is the key field's name."
+    [TestMethod]
+    public void PivotOverwritesAKeyOfTheAggregateType()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 6, "a", 3)]).Select(e => new IntKeyed { Key = 7, Value = e.Value });
+        var output = new List<IntTotals>();
+        input.Pivot(() => new IntTotals(), e => e.Key, e => "Odd", e => e.Value, w => w.Sum(v => v))
+            .ToStreamEventObservable().Where(e => e.IsData).Subscribe(e => output.Add(e.Payload));
+        Assert.AreEqual(0, output[0].Key);
+        Assert.AreEqual(3, output[0].Odd);
+    }
+
+    // unpivot.md: other kinds of value field follow other rules; "an int input field with an object
+    // value field throws when the query is built".
+    [TestMethod]
+    public void UnpivotIntFieldToObjectValueThrowsAtBuild()
+    {
+        var input = Operators.Ingress([I(1, 5, "a", 1)]).Select(e => new IntPair { Key = e.Key, Low = e.Value, High = e.Value });
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            input.Unpivot(() => new ObjectTriple(), p => p.Key, t => t.Attribute, t => t.Value));
+    }
+
+    // pivot.md: "The key selector must name fields of the input". A computed key is refused.
+    [TestMethod]
+    public void PivotRefusesAComputedKey()
+    {
+        var input = Operators.Ingress([I(1, 5, "a", 1)]);
+        Assert.ThrowsExactly<NotImplementedException>(() =>
+            input.Pivot(() => new Totals(), e => e.Key + "x", e => "Odd", e => e.Value, w => w.Sum(v => v)));
+    }
+
+    // unpivot.md: with an int value field, an int? field "becomes one output event ... unless it is
+    // null", and "a field of another type, such as string, is ignored".
+    [TestMethod]
+    public void UnpivotSkipsNullAndNonFittingFields()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 5, "a", 1)]);
+        Assert.AreEqual("Interval[1,5)a:High 10",
+            Show(Operators.Collect(input.Select(e => new Pair { Key = e.Key, Low = null, High = e.Value * 10 })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
+        Assert.AreEqual("Interval[1,5)a:Low 1",
+            Show(Operators.Collect(input.Select(e => new PairWithNote { Key = e.Key, Low = e.Value, Note = "n" })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
+    }
+
+    // unpivot.md, known issues: with an int value field, int fields are always skipped; int? properties
+    // with values are skipped, and null ones throw. These pin the engine defects as they are today: when they are
+    // fixed, this test fails, and unpivot.md's known-issues paragraph (and this test) must be updated.
+    [TestMethod]
+    public void UnpivotKnownIssues()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 5, "a", 1)]);
+        Assert.AreEqual("",
+            Show(Operators.Collect(input.Select(e => new IntPair { Key = e.Key, Low = e.Value, High = e.Value * 10 })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
+        Assert.AreEqual("",
+            Show(Operators.Collect(input.Select(e => new PropPair { Key = e.Key, Low = e.Value, High = e.Value * 10 })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            Operators.Collect(input.Select(e => new PropPair { Key = e.Key, Low = null, High = null })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value)));
+    }
+
+    // reduce.md: "GroupApply(keySelector, apply, resultSelector) is ... Map(keySelector) followed by
+    // Reduce(apply, resultSelector), with a mapper that passes the input through".
+    [TestMethod]
+    public void GroupApplyIsMapThenReduce()
+    {
+        var entry = Operators.All.Single(e => e.Id == "reduce");
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress(entry.DefaultInputs[0]);
+        Assert.AreEqual(Show(Operators.Run(entry, entry.DefaultInputs)),
+            Show(Operators.Collect(input.GroupApply(e => e.Key, g => g.Count(), (k, c) => new Out(k.Key, "count " + c)))));
+    }
+
+    // reduce.md, known issue: after a Map with a key selector, Reduce() with no arguments builds, then
+    // throws a NullReferenceException when subscribed. This pins the engine defect as it is today:
+    // when it is fixed, this test fails, and reduce.md's known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    public void ReduceKnownIssueEmptyReduceAfterAKeyedMap()
+    {
+        Config.ForceRowBasedExecution = true;
+        var query = Operators.Ingress([I(1, 5, "a", 1)]).Map(s => s, e => e.Key).Reduce();
+        Assert.ThrowsExactly<NullReferenceException>(() => Operators.Collect(query));
     }
 
     // where-not-exists.md: a Join that projects the left payload emits one copy per overlapping right match.

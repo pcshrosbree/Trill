@@ -21,6 +21,10 @@ public static class Operators
     static readonly EventDto[] Ticks = [P(1, "a", 1), P(2, "b", 2), P(4, "a", 3), P(7, "b", 4), P(9, "a", 5)];
     // Two overlapping events with the same key, for Distinct.
     static readonly EventDto[] Overlapping = [I(1, 6, "a", 1), I(3, 8, "a", 2), I(4, 7, "b", 3)];
+    // An odd and an even a that end together, for Pivot. When an interval event ends while
+    // another in its group lives on, this fork's Pivot can get the result wrong (pivot.md); this
+    // input avoids that.
+    static readonly EventDto[] PivotInput = [I(1, 6, "a", 1), I(3, 6, "a", 2), I(4, 7, "b", 3)];
 
     /// <summary>The catalogue.</summary>
     public static readonly OperatorEntry[] All =
@@ -39,6 +43,20 @@ public static class Operators
                 (g, r) => r)),
         Unary("distinct", "Distinct", 0, Overlapping,
             input => input.Distinct(e => e.Key)),
+        Unary("select-many-by-key", "SelectManyByKey", 0, Left,
+            input => input.GroupApply(e => e.Key,
+                g => g.SelectManyByKey((k, e) => Enumerable.Range(1, e.Value).Select(i => new Out(k.InnerGroup, e.Value + "." + i + " in " + k.InnerGroup))),
+                (g, r) => r)),
+        Unary("pivot", "Pivot", 0, PivotInput,
+            input => input.Pivot(() => new Totals(), e => e.Key, e => e.Value % 2 == 0 ? "Even" : "Odd", e => e.Value,
+                w => w.Sum(v => v))),
+        Unary("unpivot", "Unpivot", 0, Left,
+            input => input.Select(e => new Pair { Key = e.Key, Low = e.Value, High = e.Value * 10 })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value)),
+        Unary("map", "Map", 0, Left,
+            input => input.Map(s => s.Where(e => e.Value > 1)).Reduce()),
+        Unary("reduce", "Reduce", 0, Overlapping,
+            input => input.Map(s => s, e => e.Key).Reduce(g => g.Count(), (k, c) => new Out(k.Key, "count " + c))),
 
         Unary("alter-event-duration", "AlterEventDuration", 1, Ticks,
             input => input.AlterEventDuration(3)),
@@ -137,6 +155,8 @@ public static class Operators
     {
         Ev ev => (ev.Key, ev.Value.ToString()),
         Out o => (o.Key, o.Label),
+        Totals t => (t.Key, $"odd {t.Odd}, even {t.Even}"),
+        Triple t => (t.Key, $"{t.Attribute} {t.Value}"),
         Empty => (null, "match"),
         // A string payload is a key on its own, such as Distinct's output: coloured by itself, no label.
         string s => (s, ""),

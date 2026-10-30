@@ -8,6 +8,6 @@ The selector returns a sequence of payloads for each input payload. Each payload
 
 In the diagram, each event becomes as many events as its value: `a:1` gives one, `b:2` two and `a:3` three, all with their input's lifetime.
 
-An overload takes `(start, payload)`, as [Select (with start time)](select-start-time.md) does. On a grouped stream, `SelectManyByKey` also passes the grouping key, as [SelectByKey](select-by-key.md) does.
+An overload takes `(start, payload)`, as [Select (with start time)](select-start-time.md) does. [SelectManyByKey](select-many-by-key.md) also passes the stream's key, as [SelectByKey](select-by-key.md) does.
 
-**See also:** [Select](select.md), [Where](where.md), [SelectByKey](select-by-key.md)
+**See also:** [Select](select.md), [Where](where.md), [SelectByKey](select-by-key.md), [SelectManyByKey](select-many-by-key.md)

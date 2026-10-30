@@ -391,6 +391,382 @@
     ]
   },
   {
+    "id": "select-many-by-key",
+    "title": "SelectManyByKey",
+    "category": "Filtering and projection",
+    "code": "input.GroupApply(e =\u003E e.Key,\n    g =\u003E g.SelectManyByKey((k, e) =\u003E Enumerable.Range(1, e.Value).Select(i =\u003E new Out(k.InnerGroup, e.Value \u002B \u0022.\u0022 \u002B i \u002B \u0022 in \u0022 \u002B k.InnerGroup))),\n    (g, r) =\u003E r)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "1.1 in a"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2.1 in b"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2.2 in b"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3.1 in a"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3.2 in a"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3.3 in a"
+      }
+    ]
+  },
+  {
+    "id": "pivot",
+    "title": "Pivot",
+    "category": "Filtering and projection",
+    "code": "input.Pivot(() =\u003E new Totals(), e =\u003E e.Key, e =\u003E e.Value % 2 == 0 ? \u0022Even\u0022 : \u0022Odd\u0022, e =\u003E e.Value,\n    w =\u003E w.Sum(v =\u003E v))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 6,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 6,
+          "key": "a",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": "a",
+        "label": "odd 1, even 0"
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 3,
+        "key": "a",
+        "label": "odd 1, even 0"
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": "a",
+        "label": "odd 1, even 2"
+      },
+      {
+        "kind": "Start",
+        "start": 4,
+        "end": null,
+        "key": "b",
+        "label": "odd 3, even 0"
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 6,
+        "key": "a",
+        "label": "odd 1, even 2"
+      },
+      {
+        "kind": "End",
+        "start": 4,
+        "end": 7,
+        "key": "b",
+        "label": "odd 3, even 0"
+      }
+    ]
+  },
+  {
+    "id": "unpivot",
+    "title": "Unpivot",
+    "category": "Filtering and projection",
+    "code": "input.Select(e =\u003E new Pair { Key = e.Key, Low = e.Value, High = e.Value * 10 })\n    .Unpivot(() =\u003E new Triple(), p =\u003E p.Key, t =\u003E t.Attribute, t =\u003E t.Value)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "High 10"
+      },
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "Low 1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "High 20"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "Low 2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "High 30"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "Low 3"
+      }
+    ]
+  },
+  {
+    "id": "map",
+    "title": "Map",
+    "category": "Filtering and projection",
+    "code": "input.Map(s =\u003E s.Where(e =\u003E e.Value \u003E 1)).Reduce()",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "reduce",
+    "title": "Reduce",
+    "category": "Filtering and projection",
+    "code": "input.Map(s =\u003E s, e =\u003E e.Key).Reduce(g =\u003E g.Count(), (k, c) =\u003E new Out(k.Key, \u0022count \u0022 \u002B c))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 6,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 8,
+          "key": "a",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": "a",
+        "label": "count 1"
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 3,
+        "key": "a",
+        "label": "count 1"
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": "a",
+        "label": "count 2"
+      },
+      {
+        "kind": "Start",
+        "start": 4,
+        "end": null,
+        "key": "b",
+        "label": "count 1"
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 6,
+        "key": "a",
+        "label": "count 2"
+      },
+      {
+        "kind": "Start",
+        "start": 6,
+        "end": null,
+        "key": "a",
+        "label": "count 1"
+      },
+      {
+        "kind": "End",
+        "start": 4,
+        "end": 7,
+        "key": "b",
+        "label": "count 1"
+      },
+      {
+        "kind": "End",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "count 1"
+      }
+    ]
+  },
+  {
     "id": "alter-event-duration",
     "title": "AlterEventDuration",
     "category": "Lifetimes and windows",

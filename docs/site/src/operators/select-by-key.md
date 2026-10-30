@@ -8,6 +8,6 @@ Every Trill stream has a key type, the `TKey` in `IStreamable<TKey, TPayload>`, 
 
 The diagram uses `GroupApply` to make each event's `Key` field the stream key that the selector receives. Each output names its group: `a:1` becomes `1 in a`.
 
-Two related forms take the start time as well, `(start, key, payload)`. `SelectManyByKey` is the same for [SelectMany](select-many.md), with `(key, payload)` or `(start, key, payload)`.
+Two related forms take the start time as well, `(start, key, payload)`. [SelectManyByKey](select-many-by-key.md) is the same for [SelectMany](select-many.md), with `(key, payload)` or `(start, key, payload)`.
 
-**See also:** [GroupApply](group-apply.md), [Select](select.md), [SelectMany](select-many.md)
+**See also:** [GroupApply](group-apply.md), [Select](select.md), [SelectMany](select-many.md), [SelectManyByKey](select-many-by-key.md)

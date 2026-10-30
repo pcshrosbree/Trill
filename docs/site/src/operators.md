@@ -12,6 +12,11 @@ Each operator has a page with an interactive diagram computed by Trill. It cover
 | [SelectMany](operators/select-many.md) | Turns each event into zero or more events with the same lifetime. |
 | [SelectByKey](operators/select-by-key.md) | Transforms each event's payload using the stream's key as well. |
 | [Distinct](operators/distinct.md) | Removes duplicates among the events alive at each moment. |
+| [SelectManyByKey](operators/select-many-by-key.md) | Turns each event into zero or more events using the stream's key as well. |
+| [Pivot](operators/pivot.md) | Turns the events alive at each moment into one payload per group, with one field per attribute. |
+| [Unpivot](operators/unpivot.md) | Turns each event into one event per value field. |
+| [Map](operators/map.md) | Starts a map-reduce: runs a query on the input, ready for a Reduce. |
+| [Reduce](operators/reduce.md) | Runs a query on each group that a Map formed, and merges the results. |
 
 ## Lifetimes and windows
 
