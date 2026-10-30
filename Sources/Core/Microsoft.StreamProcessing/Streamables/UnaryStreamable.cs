@@ -30,6 +30,7 @@ namespace Microsoft.StreamProcessing
         {
             if (this.Source.Properties.IsColumnar && !CanGenerateColumnar())
             {
+                ReportRowMode();
                 this.properties = this.properties.ToRowBased();
                 this.Source = this.Source.ColumnToRow();
             }

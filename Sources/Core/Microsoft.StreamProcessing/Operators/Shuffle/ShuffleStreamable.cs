@@ -60,8 +60,14 @@ namespace Microsoft.StreamProcessing
             numBranches++;
             if (pipe == null)
             {
-                if (this.Properties.IsColumnar && CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
-                else pipe = CreatePipe(observer);
+                if (!this.Properties.IsColumnar) pipe = CreatePipe(observer);
+                else if (CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
+                else
+                {
+                    // Decided here rather than when the query was built, so the stream's properties still say columnar.
+                    ReportRowMode(atSubscribe: true);
+                    pipe = CreatePipe(observer);
+                }
             }
             var o = observer;
             pipe.AddObserver(o);
@@ -98,9 +104,9 @@ namespace Microsoft.StreamProcessing
             var typeOfTSource = typeof(TSource);
             var typeOfTInnerKey = typeof(TInnerKey);
 
-            if (!typeOfTSource.CanRepresentAsColumnar()) return false;
-            if (typeOfTOuterKey.GetPartitionType() != null) return false;
-            if (typeOfTInnerKey.GetPartitionType() != null) return false;
+            if (!typeOfTSource.CanRepresentAsColumnar()) return RefuseType(typeOfTSource);
+            if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
+            if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
             var keyEqComparer = Properties.KeyEqualityComparer;
             string inlinedHashCodeComputation;
@@ -117,8 +123,7 @@ namespace Microsoft.StreamProcessing
             var lookupKey = CacheKey.Create(KeySelector.ToString(), inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(this.KeySelector, inlinedHashCodeComputation, true, this.powerOf2));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserverAndNestedGroupedStreamObservable<TOuterKey, TSource, TInnerKey> GetPipe(IStreamObserver<CompoundGroupKey<TOuterKey, TInnerKey>, TSource> observer, int totalBranchesL2, int shuffleId)
@@ -208,8 +213,14 @@ namespace Microsoft.StreamProcessing
             numBranches++;
             if (pipe == null)
             {
-                if (this.Properties.IsColumnar && CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
-                else pipe = CreatePipe(observer);
+                if (!this.Properties.IsColumnar) pipe = CreatePipe(observer);
+                else if (CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
+                else
+                {
+                    // Decided here rather than when the query was built, so the stream's properties still say columnar.
+                    ReportRowMode(atSubscribe: true);
+                    pipe = CreatePipe(observer);
+                }
             }
             var o = observer;
             pipe.AddObserver(o);
@@ -244,9 +255,9 @@ namespace Microsoft.StreamProcessing
             var typeOfTSource = typeof(TSource);
             var typeOfTInnerKey = typeof(TInnerKey);
 
-            if (!typeOfTSource.CanRepresentAsColumnar()) return false;
-            if (typeOfTOuterKey.GetPartitionType() != null) return false;
-            if (typeOfTInnerKey.GetPartitionType() != null) return false;
+            if (!typeOfTSource.CanRepresentAsColumnar()) return RefuseType(typeOfTSource);
+            if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
+            if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
             var keyEqComparer = Properties.KeyEqualityComparer;
             string inlinedHashCodeComputation;
@@ -263,8 +274,7 @@ namespace Microsoft.StreamProcessing
             var lookupKey = CacheKey.Create(KeySelector.ToString(), inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(this.KeySelector, inlinedHashCodeComputation, false, this.powerOf2));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserverAndGroupedStreamObservable<TOuterKey, TSource, TInnerKey> GetPipe(IStreamObserver<TInnerKey, TSource> observer, int totalBranchesL2, int shuffleId)
@@ -344,8 +354,14 @@ namespace Microsoft.StreamProcessing
             numBranches++;
             if (pipe == null)
             {
-                if (this.Properties.IsColumnar && CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
-                else pipe = CreatePipe(observer);
+                if (!this.Properties.IsColumnar) pipe = CreatePipe(observer);
+                else if (CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
+                else
+                {
+                    // Decided here rather than when the query was built, so the stream's properties still say columnar.
+                    ReportRowMode(atSubscribe: true);
+                    pipe = CreatePipe(observer);
+                }
             }
             var o = observer;
             pipe.AddObserver(o);
@@ -380,9 +396,9 @@ namespace Microsoft.StreamProcessing
             var typeOfTSource = typeof(TSource);
             var typeOfTInnerKey = typeof(TInnerKey);
 
-            if (!typeOfTSource.CanRepresentAsColumnar()) return false;
-            if (typeOfTOuterKey.GetPartitionType() != null) return false;
-            if (typeOfTInnerKey.GetPartitionType() != null) return false;
+            if (!typeOfTSource.CanRepresentAsColumnar()) return RefuseType(typeOfTSource);
+            if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
+            if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
             var keyEqComparer = Properties.KeyEqualityComparer;
             string inlinedHashCodeComputation;
@@ -399,8 +415,7 @@ namespace Microsoft.StreamProcessing
             var lookupKey = CacheKey.Create(inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(null, inlinedHashCodeComputation, false, this.powerOf2));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserverAndSameKeyGroupedStreamObservable<TOuterKey, TSource, TOuterKey> GetPipe(IStreamObserver<TOuterKey, TSource> observer, int totalBranchesL2, int shuffleId)

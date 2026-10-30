@@ -30,6 +30,8 @@ namespace Microsoft.StreamProcessing
             if (source.Properties.IsColumnar)
             {
                 // No current support for partitioned columnar
+                RefusePartitioned();
+                ReportRowMode();
                 this.properties = this.properties.ToRowBased();
                 this.Source = this.Source.ColumnToRow();
             }

@@ -29,7 +29,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<TPayload>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<TPayload>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<TPayload>> observer)
         {
             var pipe = new MonotonicArrayEgressPipe<TPayload>(this.generator, observer, this.container);
             if (this.container != null) this.container.RegisterEgressPipe(this.identifier, pipe);

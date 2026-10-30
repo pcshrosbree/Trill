@@ -3,6 +3,7 @@
 // Licensed under the MIT License
 // *********************************************************************
 using System;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Microsoft.StreamProcessing
@@ -30,5 +31,22 @@ namespace Microsoft.StreamProcessing
                 exception.Data[DiagnosticsKey] = errorMessages;
             return exception;
         }
+
+        // The generators' results are cached, failures included, so a second build of the same query
+        // gets the same tuple back without running the generator. Keep the exception beside the tuple
+        // so that a row-mode report from any build can carry it.
+        private static readonly ConditionalWeakTable<Tuple<Type, string>, Exception> Exceptions
+            = new ConditionalWeakTable<Tuple<Type, string>, Exception>();
+
+        // With fallback to row mode allowed, a failed code generation returns this result.
+        internal static Tuple<Type, string> Fallback(string errorMessages, Exception exception)
+        {
+            var result = Tuple.Create((Type)null, errorMessages);
+            Exceptions.Add(result, exception);
+            return result;
+        }
+
+        internal static Exception ExceptionOf(Tuple<Type, string> generated)
+            => generated != null && Exceptions.TryGetValue(generated, out var exception) ? exception : null;
     }
 }

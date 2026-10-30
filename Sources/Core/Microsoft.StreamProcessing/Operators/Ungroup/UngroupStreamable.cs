@@ -34,7 +34,10 @@ namespace Microsoft.StreamProcessing
             // The fallback pipes write their output a row at a time, so it must be row-based.
             // They read their input through the batch indexer, which columnar batches support.
             if (source.Properties.IsColumnar && !CanGenerateColumnar())
+            {
+                ReportRowMode();
                 this.properties = this.properties.ToRowBased();
+            }
         }
 
         public override IDisposable Subscribe(IStreamObserver<TOuterKey, TResult> observer)
@@ -58,19 +61,18 @@ namespace Microsoft.StreamProcessing
             var typeOfTInnerKey = typeof(TInnerKey);
             var typeOfTResult = typeof(TResult);
 
-            if (!typeOfTResult.CanRepresentAsColumnar()) return false;
-            if (typeOfTOuterKey.GetPartitionType() != null) return false;
-            if (typeOfTInnerKey.GetPartitionType() != null) return false;
+            if (!typeOfTResult.CanRepresentAsColumnar()) return RefuseType(typeOfTResult);
+            if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
+            if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
             // For now, restrict the inner key to be anything other than an anonymous type since those can't be ungrouped without using reflection.
-            if (typeOfTInnerKey.IsAnonymousType()) return false;
+            if (typeOfTInnerKey.IsAnonymousType()) return RefuseUnsupported("the grouping key is an anonymous type");
 
             var lookupKey = CacheKey.Create(this.ResultSelector.ExpressionToCSharp());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => UngroupTemplate.Generate<TOuterKey, TInnerKey, TInnerResult, TResult>(this.ResultSelector));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserver<CompoundGroupKey<TOuterKey, TInnerKey>, TInnerResult> GetPipe(IStreamObserver<TOuterKey, TResult> observer)
@@ -119,7 +121,10 @@ namespace Microsoft.StreamProcessing
             // The fallback pipes write their output a row at a time, so it must be row-based.
             // They read their input through the batch indexer, which columnar batches support.
             if (source.Properties.IsColumnar && !CanGenerateColumnar())
+            {
+                ReportRowMode();
                 this.properties = this.properties.ToRowBased();
+            }
         }
 
         public override IDisposable Subscribe(IStreamObserver<Empty, TResult> observer)
@@ -141,18 +146,17 @@ namespace Microsoft.StreamProcessing
             var typeOfTInnerKey = typeof(TInnerKey);
             var typeOfTResult = typeof(TResult);
 
-            if (!typeOfTResult.CanRepresentAsColumnar()) return false;
-            if (typeOfTInnerKey.GetPartitionType() != null) return false;
+            if (!typeOfTResult.CanRepresentAsColumnar()) return RefuseType(typeOfTResult);
+            if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
             // For now, restrict the inner key to be anything other than an anonymous type since those can't be ungrouped without using reflection.
-            if (typeOfTInnerKey.IsAnonymousType()) return false;
+            if (typeOfTInnerKey.IsAnonymousType()) return RefuseUnsupported("the grouping key is an anonymous type");
 
             var lookupKey = CacheKey.Create(this.ResultSelector.ExpressionToCSharp());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => UngroupTemplate.Generate<TInnerKey, TInnerResult, TResult>(this.ResultSelector));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserver<TInnerKey, TInnerResult> GetPipe(IStreamObserver<Empty, TResult> observer)

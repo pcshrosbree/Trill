@@ -26,7 +26,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<StreamMessage<TKey, TPayload>> observer)
+        public IDisposable Subscribe(IObserver<StreamMessage<TKey, TPayload>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<StreamMessage<TKey, TPayload>> observer)
         {
             var pipe = new StreamMessageEgressPipe<TKey, TPayload>(observer, this.container);
             if (this.container != null) this.container.RegisterEgressPipe(this.identifier, pipe);

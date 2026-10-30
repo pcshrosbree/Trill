@@ -27,8 +27,16 @@ namespace Microsoft.StreamProcessing
         /// <returns></returns>
         public static StreamCache<TKey, TPayload> Cache<TKey, TPayload>(this IStreamable<TKey, TPayload> stream, ulong limit = 0, bool inferProperties = false, bool coalesceEndEdges = false)
         {
-            var elements = new List<QueuedMessage<StreamMessage<TKey, TPayload>>>();
             if (coalesceEndEdges) stream = stream.ToEndEdgeFreeStream();
+
+            // From here Cache() asks whether the stream is columnar and subscribes to it, so a decision that is still
+            // open is made during Subscribe.
+            return RowMode.WhileSubscribing(() => CacheCore(stream, limit, inferProperties));
+        }
+
+        private static StreamCache<TKey, TPayload> CacheCore<TKey, TPayload>(IStreamable<TKey, TPayload> stream, ulong limit, bool inferProperties)
+        {
+            var elements = new List<QueuedMessage<StreamMessage<TKey, TPayload>>>();
 
             var observable = new QueuedMessageObservable<TKey, TPayload>(stream);
             var limitSpecified = limit > 0;

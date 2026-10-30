@@ -47,13 +47,16 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = new FuseModule();
             if (this.delayed) container.RegisterIngressSite(this.IngressSiteIdentifier);
 
-            if (Config.ForceRowBasedExecution
-                || !typeof(TPayload).CanRepresentAsColumnar()
-                || typeof(TPayload).IsAnonymousTypeName())
+            if (Config.ForceRowBasedExecution)
             {
                 this.properties = properties.ToRowBased();
             }
-            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnar);
+            else if (!CanStartColumnar())
+            {
+                ReportRowMode();
+                this.properties = properties.ToRowBased();
+            }
+            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnarOrReport);
         }
 
         public void Dispose() => diagnosticOutput?.Dispose();
@@ -126,8 +129,22 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
+        }
+
+        // The stream's properties ask this once, when an operator after the ingress first reads IsColumnar.
+        private bool CanGenerateColumnarOrReport()
+        {
+            if (CanGenerateColumnar()) return true;
+            ReportRowMode();
+            return false;
+        }
+
+        private bool CanStartColumnar()
+        {
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (typeof(TPayload).IsAnonymousTypeName()) return RefuseUnsupported("the ingress payload type is an anonymous type");
+            return true;
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<Empty, TPayload> observer)
@@ -378,13 +395,16 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = new FuseModule();
             if (this.delayed) container.RegisterIngressSite(this.IngressSiteIdentifier);
 
-            if (Config.ForceRowBasedExecution
-                || !typeof(TPayload).CanRepresentAsColumnar()
-                || typeof(TPayload).IsAnonymousTypeName())
+            if (Config.ForceRowBasedExecution)
             {
                 this.properties = properties.ToRowBased();
             }
-            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnar);
+            else if (!CanStartColumnar())
+            {
+                ReportRowMode();
+                this.properties = properties.ToRowBased();
+            }
+            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnarOrReport);
         }
 
         public void Dispose() => diagnosticOutput?.Dispose();
@@ -464,8 +484,22 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
+        }
+
+        // The stream's properties ask this once, when an operator after the ingress first reads IsColumnar.
+        private bool CanGenerateColumnarOrReport()
+        {
+            if (CanGenerateColumnar()) return true;
+            ReportRowMode();
+            return false;
+        }
+
+        private bool CanStartColumnar()
+        {
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (typeof(TPayload).IsAnonymousTypeName()) return RefuseUnsupported("the ingress payload type is an anonymous type");
+            return true;
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<Empty, TPayload> observer)
@@ -730,6 +764,7 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = new FuseModule();
             if (this.delayed) container.RegisterIngressSite(this.IngressSiteIdentifier);
 
+            RowMode.Report(this, RowModeRefusal.Partitioned, atSubscribe: false);
             this.properties = properties.ToRowBased();
         }
 
@@ -805,8 +840,7 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<PartitionKey<TPartitionKey>, TPayload> observer)
@@ -1074,6 +1108,7 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = new FuseModule();
             if (this.delayed) container.RegisterIngressSite(this.IngressSiteIdentifier);
 
+            RowMode.Report(this, RowModeRefusal.Partitioned, atSubscribe: false);
             this.properties = properties.ToRowBased();
         }
 
@@ -1159,8 +1194,7 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<PartitionKey<TPartitionKey>, TPayload> observer)
@@ -1447,15 +1481,16 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = fuseModule;
             this.entryPoint = entryPoint;
 
-            if (Config.ForceRowBasedExecution
-                || !typeof(TResult).CanRepresentAsColumnar()
-                || typeof(TResult).IsAnonymousTypeName()
-                || !typeof(TPayload).CanRepresentAsColumnar()
-                || typeof(TPayload).IsAnonymousTypeName())
+            if (Config.ForceRowBasedExecution)
             {
                 this.properties = properties.ToRowBased();
             }
-            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnar);
+            else if (!CanStartColumnar())
+            {
+                ReportRowMode();
+                this.properties = properties.ToRowBased();
+            }
+            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnarOrReport);
         }
 
         public void Dispose() => entryPoint?.Dispose();
@@ -1527,8 +1562,24 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && entryPoint.diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
+        }
+
+        // The stream's properties ask this once, when an operator after the ingress first reads IsColumnar.
+        private bool CanGenerateColumnarOrReport()
+        {
+            if (CanGenerateColumnar()) return true;
+            ReportRowMode();
+            return false;
+        }
+
+        private bool CanStartColumnar()
+        {
+            if (!typeof(TResult).CanRepresentAsColumnar()) return RefuseType(typeof(TResult));
+            if (typeof(TResult).IsAnonymousTypeName()) return RefuseUnsupported("the ingress result type is an anonymous type");
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (typeof(TPayload).IsAnonymousTypeName()) return RefuseUnsupported("the ingress payload type is an anonymous type");
+            return true;
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<Empty, TResult> observer)
@@ -1781,15 +1832,16 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = fuseModule;
             this.entryPoint = entryPoint;
 
-            if (Config.ForceRowBasedExecution
-                || !typeof(TResult).CanRepresentAsColumnar()
-                || typeof(TResult).IsAnonymousTypeName()
-                || !typeof(TPayload).CanRepresentAsColumnar()
-                || typeof(TPayload).IsAnonymousTypeName())
+            if (Config.ForceRowBasedExecution)
             {
                 this.properties = properties.ToRowBased();
             }
-            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnar);
+            else if (!CanStartColumnar())
+            {
+                ReportRowMode();
+                this.properties = properties.ToRowBased();
+            }
+            else this.properties = properties.ToDelayedColumnar(CanGenerateColumnarOrReport);
         }
 
         public void Dispose() => entryPoint?.Dispose();
@@ -1868,8 +1920,24 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && entryPoint.diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
+        }
+
+        // The stream's properties ask this once, when an operator after the ingress first reads IsColumnar.
+        private bool CanGenerateColumnarOrReport()
+        {
+            if (CanGenerateColumnar()) return true;
+            ReportRowMode();
+            return false;
+        }
+
+        private bool CanStartColumnar()
+        {
+            if (!typeof(TResult).CanRepresentAsColumnar()) return RefuseType(typeof(TResult));
+            if (typeof(TResult).IsAnonymousTypeName()) return RefuseUnsupported("the ingress result type is an anonymous type");
+            if (!typeof(TPayload).CanRepresentAsColumnar()) return RefuseType(typeof(TPayload));
+            if (typeof(TPayload).IsAnonymousTypeName()) return RefuseUnsupported("the ingress payload type is an anonymous type");
+            return true;
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<Empty, TResult> observer)
@@ -2136,6 +2204,7 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = fuseModule;
             this.entryPoint = entryPoint;
 
+            RowMode.Report(this, RowModeRefusal.Partitioned, atSubscribe: false);
             this.properties = properties.ToRowBased();
         }
 
@@ -2210,8 +2279,7 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && entryPoint.diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<PartitionKey<TPartitionKey>, TResult> observer)
@@ -2481,6 +2549,7 @@ namespace Microsoft.StreamProcessing
             this.fuseModule = fuseModule;
             this.entryPoint = entryPoint;
 
+            RowMode.Report(this, RowModeRefusal.Partitioned, atSubscribe: false);
             this.properties = properties.ToRowBased();
         }
 
@@ -2565,8 +2634,7 @@ namespace Microsoft.StreamProcessing
                     disorderPolicy.type != DisorderPolicyType.Throw && entryPoint.diagnosticOutput != null ? "WithDiagnostic" : string.Empty,
                     fuseModule));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IIngressStreamObserver GetPipe(IStreamObserver<PartitionKey<TPartitionKey>, TResult> observer)

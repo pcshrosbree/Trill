@@ -51,8 +51,7 @@ namespace Microsoft.StreamProcessing
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => SessionWindowTemplate.Generate(this));
 
-            this.errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private UnaryPipe<TKey, TPayload, TPayload> GetPipe(IStreamObserver<TKey, TPayload> observer)

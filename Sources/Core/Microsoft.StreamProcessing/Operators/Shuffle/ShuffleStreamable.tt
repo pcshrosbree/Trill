@@ -95,8 +95,14 @@ else { #>
             numBranches++;
             if (pipe == null)
             {
-                if (this.Properties.IsColumnar && CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
-                else pipe = CreatePipe(observer);
+                if (!this.Properties.IsColumnar) pipe = CreatePipe(observer);
+                else if (CanGenerateColumnar()) pipe = GetPipe(observer, totalBranchesL2, shuffleId);
+                else
+                {
+                    // Decided here rather than when the query was built, so the stream's properties still say columnar.
+                    ReportRowMode(atSubscribe: true);
+                    pipe = CreatePipe(observer);
+                }
             }
             var o = observer;
             pipe.AddObserver(o);
@@ -137,9 +143,9 @@ else { #>
             var typeOfTSource = typeof(TSource);
             var typeOfTInnerKey = typeof(TInnerKey);
 
-            if (!typeOfTSource.CanRepresentAsColumnar()) return false;
-            if (typeOfTOuterKey.GetPartitionType() != null) return false;
-            if (typeOfTInnerKey.GetPartitionType() != null) return false;
+            if (!typeOfTSource.CanRepresentAsColumnar()) return RefuseType(typeOfTSource);
+            if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
+            if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
             var keyEqComparer = Properties.KeyEqualityComparer;
             string inlinedHashCodeComputation;
@@ -156,8 +162,7 @@ else { #>
             var lookupKey = CacheKey.Create(<#= i != 2 ? "KeySelector.ToString(), " : string.Empty #>inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(<#= i < 2 ? "this.KeySelector" : "null" #>, inlinedHashCodeComputation, <#= i == 0 ? "true" : "false" #>, this.powerOf2));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserverAnd<#= nestedInfix #>GroupedStreamObservable<TOuterKey, TSource, <#= innerKeyTemplate #>> GetPipe(IStreamObserver<<#= innerKey #>, TSource> observer, int totalBranchesL2, int shuffleId)

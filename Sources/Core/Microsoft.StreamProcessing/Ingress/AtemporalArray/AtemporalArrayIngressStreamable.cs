@@ -36,6 +36,10 @@ namespace Microsoft.StreamProcessing
             this.delayed = container != null;
 
             if (this.delayed) container.RegisterIngressSite(identifier);
+
+            // Last, so that the hook sees a fully built ingress.
+            if (!typeof(TPayload).CanRepresentAsColumnar())
+                RowMode.Report(this, RowModeRefusal.TypeNotColumnar(typeof(TPayload)), atSubscribe: false);
         }
 
         [ContractInvariantMethod]

@@ -26,7 +26,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<TPayload> observer)
+        public IDisposable Subscribe(IObserver<TPayload> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<TPayload> observer)
         {
             var pipe = new MonotonicEgressPipe<TPayload>(
                 observer, this.container);
@@ -53,7 +55,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<TPayload> observer)
+        public IDisposable Subscribe(IObserver<TPayload> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<TPayload> observer)
         {
             var pipe = new ReactiveEgressPipe<TPayload>(
                 observer, this.container);

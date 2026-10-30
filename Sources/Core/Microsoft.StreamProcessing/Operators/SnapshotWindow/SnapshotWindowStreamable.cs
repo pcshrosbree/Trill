@@ -373,17 +373,14 @@ namespace Microsoft.StreamProcessing
             var typeOfTInput = typeof(TInput);
             var typeOfTOutput = typeof(TOutput);
 
-            if (!typeOfTInput.CanRepresentAsColumnar()) return false;
-            if (typeOfTKey.GetPartitionType() != null) return false;
-            if (!typeOfTOutput.CanRepresentAsColumnar()) return false;
+            if (!typeOfTInput.CanRepresentAsColumnar()) return RefuseType(typeOfTInput);
+            if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
+            if (!typeOfTOutput.CanRepresentAsColumnar()) return RefuseType(typeOfTOutput);
 
             var lookupKey = CacheKey.Create(this.apt, GetAggregateFunctionsHashCode(this.Aggregate));
 
             var tuple = cachedPipes.GetOrAdd(lookupKey, key => AggregateTemplate.Generate(this, this.apt));
-            var generatedPipeType = tuple.Item1;
-            this.errorMessages = tuple.Item2;
-
-            return generatedPipeType != null;
+            return Generated(tuple);
         }
 
         private Tuple<Type, string> GetPipe()

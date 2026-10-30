@@ -32,7 +32,7 @@ namespace Microsoft.StreamProcessing
             Initialize();
         }
 
-        protected override bool CanGenerateColumnar() => typeof(TPayload).CanRepresentAsColumnar();
+        protected override bool CanGenerateColumnar() => typeof(TPayload).CanRepresentAsColumnar() || RefuseType(typeof(TPayload));
 
         internal override IStreamObserver<TKey, TPayload> CreatePipe(IStreamObserver<TKey, TPayload> observer)
         {

@@ -36,6 +36,10 @@ namespace Microsoft.StreamProcessing
             this.delayed = container != null;
 
             if (delayed) container.RegisterIngressSite(identifier);
+
+            // Last, so that the hook sees a fully built ingress.
+            if (!typeof(TPayload).CanRepresentAsColumnar())
+                RowMode.Report(this, RowModeRefusal.TypeNotColumnar(typeof(TPayload)), atSubscribe: false);
         }
 
         public void Dispose()
@@ -116,6 +120,10 @@ namespace Microsoft.StreamProcessing
             this.delayed = container != null;
 
             if (delayed) container.RegisterIngressSite(identifier);
+
+            // Last, so that the hook sees a fully built ingress.
+            if (!typeof(TPayload).CanRepresentAsColumnar())
+                RowMode.Report(this, RowModeRefusal.TypeNotColumnar(typeof(TPayload)), atSubscribe: false);
         }
 
         public void Dispose()
@@ -192,6 +200,10 @@ namespace Microsoft.StreamProcessing
             this.delayed = container != null;
 
             if (delayed) container.RegisterIngressSite(identifier);
+
+            // Last, so that the hook sees a fully built ingress.
+            if (!typeof(TPayload).CanRepresentAsColumnar())
+                RowMode.Report(this, RowModeRefusal.TypeNotColumnar(typeof(TPayload)), atSubscribe: false);
         }
 
         public void Dispose()
@@ -275,6 +287,10 @@ namespace Microsoft.StreamProcessing
             this.delayed = container != null;
 
             if (delayed) container.RegisterIngressSite(identifier);
+
+            // Last, so that the hook sees a fully built ingress.
+            if (!typeof(TPayload).CanRepresentAsColumnar())
+                RowMode.Report(this, RowModeRefusal.TypeNotColumnar(typeof(TPayload)), atSubscribe: false);
         }
 
         public void Dispose()

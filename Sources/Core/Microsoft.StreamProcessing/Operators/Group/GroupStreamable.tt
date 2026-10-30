@@ -47,6 +47,7 @@ else { #>
 
             if (Source.Properties.IsColumnar && !CanGenerateColumnar())
             {
+                ReportRowMode();
                 properties = properties.ToRowBased();
                 Source = Source.ColumnToRow();
             }
@@ -76,13 +77,13 @@ else { #>
             var typeOfTSource = typeof(TSource);
             var typeOfTInnerKey = typeof(TInnerKey);
 
-            if (!typeOfTSource.CanRepresentAsColumnar()) return false;
-            if (typeOfTOuterKey.GetPartitionType() != null) return false;
-            if (typeOfTInnerKey.GetPartitionType() != null) return false;
+            if (!typeOfTSource.CanRepresentAsColumnar()) return RefuseType(typeOfTSource);
+            if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
+            if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
 <# if (i == 1) { #>
             // For now, restrict the inner key to be anything other than an anonymous type since those can't be ungrouped without using reflection.
-            if (typeOfTInnerKey.IsAnonymousType()) return false;
+            if (typeOfTInnerKey.IsAnonymousType()) return RefuseUnsupported("the grouping key is an anonymous type");
 
 <# } #>
             var lookupKey = CacheKey.Create(KeySelector.ToString());
@@ -94,8 +95,7 @@ else { #>
 <# } #>
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, <#= i == 0 ? "true" : "false" #>));
 
-            errorMessages = generatedPipeType.Item2;
-            return generatedPipeType.Item1 != null;
+            return Generated(generatedPipeType);
         }
 
         private IStreamObserver<TOuterKey, TSource> GetPipe(IStreamObserver<<#= innerKey #>, TSource> observer)

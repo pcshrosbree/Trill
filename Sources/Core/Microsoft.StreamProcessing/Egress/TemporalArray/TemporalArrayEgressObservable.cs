@@ -31,7 +31,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<StreamEvent<TPayload>>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<StreamEvent<TPayload>>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<StreamEvent<TPayload>>> observer)
         {
             var pipe = new StreamEventArrayEgressPipe<TPayload>(
                 this.generator,
@@ -67,7 +69,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<TResult>> observer)
         {
             var pipe = new StartEdgeArrayEgressPipe<TPayload, TResult>(
                 this.generator,
@@ -104,7 +108,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<TResult>> observer)
         {
             var pipe = new IntervalArrayEgressPipe<TPayload, TResult>(
                 this.generator,
@@ -138,7 +144,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<PartitionedStreamEvent<TKey, TPayload>>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<PartitionedStreamEvent<TKey, TPayload>>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<PartitionedStreamEvent<TKey, TPayload>>> observer)
         {
             var pipe = new PartitionedStreamEventArrayEgressPipe<TKey, TPayload>(
                 this.generator,
@@ -174,7 +182,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<TResult>> observer)
         {
             var pipe = new PartitionedStartEdgeArrayEgressPipe<TKey, TPayload, TResult>(
                 this.generator,
@@ -211,7 +221,9 @@ namespace Microsoft.StreamProcessing
             if (this.container != null) this.container.RegisterEgressSite(this.identifier);
         }
 
-        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer)
+        public IDisposable Subscribe(IObserver<ArraySegment<TResult>> observer) => RowMode.WhileSubscribing(() => SubscribeCore(observer));
+
+        private IDisposable SubscribeCore(IObserver<ArraySegment<TResult>> observer)
         {
             var pipe = new PartitionedIntervalArrayEgressPipe<TKey, TPayload, TResult>(
                 this.generator,
