@@ -71,7 +71,8 @@ function logical(events) {
   return out;
 }
 
-const labelText = e => (e.key ? e.key + ':' : '') + e.label;
+// key:label, or the key alone for an event with no label (a payload that is only a key).
+const labelText = e => (e.key ? e.key + (e.label ? ':' : '') : '') + e.label;
 const labelWidth = e => labelText(e).length * 7.5 + 10;
 const labelFits = e => labelWidth(e) < ((e.end ?? T) - e.start) * UNIT;
 
@@ -98,7 +99,7 @@ function describe(e, form) {
   const end = e.end == null ? '∞' : e.end;
   const how = form === 'edges' ? (e.end == null ? 'start edge, no end edge yet' : 'start edge + end edge')
             : form === 'orphan-end' ? 'end edge' : 'interval';
-  return `[${e.start}, ${end})  ${e.key ? e.key + ':' : ''}${e.label}  (${how})`;
+  return `[${e.start}, ${end})  ${labelText(e)}  (${how})`;
 }
 
 function drawLane(svg, y, name, events, opts) {

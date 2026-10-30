@@ -1,6 +1,6 @@
 # Operators by category
 
-Each operator has a page with an interactive diagram computed by Trill. This first release covers joins, pattern detection, windows and aggregates, and the operators they build on.
+Each operator has a page with an interactive diagram computed by Trill. It covers filtering and projection, joins, pattern detection, windows and aggregates, and the operators they build on.
 
 ## Filtering and projection
 
@@ -8,6 +8,10 @@ Each operator has a page with an interactive diagram computed by Trill. This fir
 |---|---|
 | [Where](operators/where.md) | Keeps the events whose payload satisfies a predicate. |
 | [Select](operators/select.md) | Transforms each event's payload; lifetimes are unchanged. |
+| [Select (with start time)](operators/select-start-time.md) | Transforms each event's payload using its start time as well. |
+| [SelectMany](operators/select-many.md) | Turns each event into zero or more events with the same lifetime. |
+| [SelectByKey](operators/select-by-key.md) | Transforms each event's payload using the stream's key as well. |
+| [Distinct](operators/distinct.md) | Removes duplicates among the events alive at each moment. |
 
 ## Lifetimes and windows
 

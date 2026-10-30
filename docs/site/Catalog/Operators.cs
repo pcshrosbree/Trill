@@ -19,6 +19,8 @@ public static class Operators
     static readonly EventDto[] Left = [I(1, 5, "a", 1), I(3, 9, "b", 2), I(6, 8, "a", 3)];
     static readonly EventDto[] Right = [I(2, 4, "a", 10), I(4, 7, "b", 20), I(10, 12, "a", 30)];
     static readonly EventDto[] Ticks = [P(1, "a", 1), P(2, "b", 2), P(4, "a", 3), P(7, "b", 4), P(9, "a", 5)];
+    // Two overlapping events with the same key, for Distinct.
+    static readonly EventDto[] Overlapping = [I(1, 6, "a", 1), I(3, 8, "a", 2), I(4, 7, "b", 3)];
 
     /// <summary>The catalogue.</summary>
     public static readonly OperatorEntry[] All =
@@ -27,6 +29,16 @@ public static class Operators
             input => input.Where(e => e.Value > 1)),
         Unary("select", "Select", 0, Left,
             input => input.Select(e => new Ev { Key = e.Key, Value = e.Value * 10 })),
+        Unary("select-start-time", "Select (with start time)", 0, Left,
+            input => input.Select((start, e) => new Out(e.Key, e.Value + " at " + start))),
+        Unary("select-many", "SelectMany", 0, Left,
+            input => input.SelectMany(e => Enumerable.Range(1, e.Value).Select(i => new Out(e.Key, e.Value + "." + i)))),
+        Unary("select-by-key", "SelectByKey", 0, Left,
+            input => input.GroupApply(e => e.Key,
+                g => g.SelectByKey((k, e) => new Out(k.InnerGroup, e.Value + " in " + k.InnerGroup)),
+                (g, r) => r)),
+        Unary("distinct", "Distinct", 0, Overlapping,
+            input => input.Distinct(e => e.Key)),
 
         Unary("alter-event-duration", "AlterEventDuration", 1, Ticks,
             input => input.AlterEventDuration(3)),
@@ -126,6 +138,8 @@ public static class Operators
         Ev ev => (ev.Key, ev.Value.ToString()),
         Out o => (o.Key, o.Label),
         Empty => (null, "match"),
+        // A string payload is a key on its own, such as Distinct's output: coloured by itself, no label.
+        string s => (s, ""),
         _ => (null, payload?.ToString()),
     };
 

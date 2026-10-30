@@ -107,6 +107,290 @@
     ]
   },
   {
+    "id": "select-start-time",
+    "title": "Select (with start time)",
+    "category": "Filtering and projection",
+    "code": "input.Select((start, e) =\u003E new Out(e.Key, e.Value \u002B \u0022 at \u0022 \u002B start))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "1 at 1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2 at 3"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3 at 6"
+      }
+    ]
+  },
+  {
+    "id": "select-many",
+    "title": "SelectMany",
+    "category": "Filtering and projection",
+    "code": "input.SelectMany(e =\u003E Enumerable.Range(1, e.Value).Select(i =\u003E new Out(e.Key, e.Value \u002B \u0022.\u0022 \u002B i)))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "1.1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2.1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2.2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3.1"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3.2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3.3"
+      }
+    ]
+  },
+  {
+    "id": "select-by-key",
+    "title": "SelectByKey",
+    "category": "Filtering and projection",
+    "code": "input.GroupApply(e =\u003E e.Key,\n    g =\u003E g.SelectByKey((k, e) =\u003E new Out(k.InnerGroup, e.Value \u002B \u0022 in \u0022 \u002B k.InnerGroup)),\n    (g, r) =\u003E r)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "1 in a"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2 in b"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3 in a"
+      }
+    ]
+  },
+  {
+    "id": "distinct",
+    "title": "Distinct",
+    "category": "Filtering and projection",
+    "code": "input.Distinct(e =\u003E e.Key)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 6,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 8,
+          "key": "a",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": "a",
+        "label": ""
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 3,
+        "key": "a",
+        "label": ""
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": "a",
+        "label": ""
+      },
+      {
+        "kind": "Start",
+        "start": 4,
+        "end": null,
+        "key": "b",
+        "label": ""
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 6,
+        "key": "a",
+        "label": ""
+      },
+      {
+        "kind": "Start",
+        "start": 6,
+        "end": null,
+        "key": "a",
+        "label": ""
+      },
+      {
+        "kind": "End",
+        "start": 4,
+        "end": 7,
+        "key": "b",
+        "label": ""
+      },
+      {
+        "kind": "End",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": ""
+      }
+    ]
+  },
+  {
     "id": "alter-event-duration",
     "title": "AlterEventDuration",
     "category": "Lifetimes and windows",
