@@ -21,7 +21,7 @@ namespace Microsoft.StreamProcessing
 
         public GroupNestedStreamable(
             IStreamable<TOuterKey, TSource> source, Expression<Func<TSource, TInnerKey>> keySelector)
-            : base(source.Properties.GroupNested(keySelector))
+            : base(source.Properties.GroupNested(keySelector = keySelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
             Contract.Requires(keySelector != null);
@@ -61,7 +61,7 @@ namespace Microsoft.StreamProcessing
             if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
             if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
-            var lookupKey = CacheKey.Create(KeySelector.ToString());
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
 
             var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, true));
@@ -71,7 +71,7 @@ namespace Microsoft.StreamProcessing
 
         private IStreamObserver<TOuterKey, TSource> GetPipe(IStreamObserver<CompoundGroupKey<TOuterKey, TInnerKey>, TSource> observer)
         {
-            var lookupKey = CacheKey.Create(KeySelector.ToString());
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
 
              var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, true));
@@ -106,7 +106,7 @@ namespace Microsoft.StreamProcessing
 
         public GroupStreamable(
             IStreamable<TOuterKey, TSource> source, Expression<Func<TSource, TInnerKey>> keySelector)
-            : base(source.Properties.Group(keySelector))
+            : base(source.Properties.Group(keySelector = keySelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
             Contract.Requires(keySelector != null);
@@ -148,7 +148,7 @@ namespace Microsoft.StreamProcessing
             // For now, restrict the inner key to be anything other than an anonymous type since those can't be ungrouped without using reflection.
             if (typeOfTInnerKey.IsAnonymousType()) return RefuseUnsupported("the grouping key is an anonymous type");
 
-            var lookupKey = CacheKey.Create(KeySelector.ToString());
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
 
             var comparer = Properties.KeyEqualityComparer.GetGetHashCodeExpr();
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, false));
@@ -158,7 +158,7 @@ namespace Microsoft.StreamProcessing
 
         private IStreamObserver<TOuterKey, TSource> GetPipe(IStreamObserver<TInnerKey, TSource> observer)
         {
-            var lookupKey = CacheKey.Create(KeySelector.ToString());
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
 
              var comparer = Properties.KeyEqualityComparer.GetGetHashCodeExpr();
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, false));

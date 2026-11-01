@@ -159,7 +159,7 @@ else { #>
                 inlinedHashCodeComputation = keyEqComparer.GetGetHashCodeExpr().Inline("key");
             }
 
-            var lookupKey = CacheKey.Create(<#= i != 2 ? "KeySelector.ToString(), " : string.Empty #>inlinedHashCodeComputation, powerOf2);
+            var lookupKey = CacheKey.Create(<#= i != 2 ? "KeySelector.CacheKeyText(), " : string.Empty #>inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(<#= i < 2 ? "this.KeySelector" : "null" #>, inlinedHashCodeComputation, <#= i == 0 ? "true" : "false" #>, this.powerOf2));
 
             return Generated(generatedPipeType);
@@ -179,7 +179,7 @@ else { #>
                 inlinedHashCodeComputation = keyEqComparer.GetGetHashCodeExpr().Inline("key");
             }
 
-            var lookupKey = CacheKey.Create(<#= i != 2 ? "KeySelector.ToString(), " : string.Empty #>inlinedHashCodeComputation, powerOf2);
+            var lookupKey = CacheKey.Create(<#= i != 2 ? "KeySelector.CacheKeyText(), " : string.Empty #>inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(<#= i < 2 ? "this.KeySelector" : "null" #>, inlinedHashCodeComputation, <#= i == 0 ? "true" : "false" #>, this.powerOf2));
 
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new GroupPlanNode(

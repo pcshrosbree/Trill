@@ -146,9 +146,9 @@ namespace SimpleTesting
         [TestMethod, TestCategory("Gated")]
         public void MapReduceSecondBuildReportsAtSubscribe()
         {
-            int mult = 10;
+            var box = new CapturedBox { Value = 10 };
             var result = Input().TumblingWindowLifetime(5)
-                .GroupAggregate(e => e.Key * mult, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c });
+                .GroupAggregate(e => e.Key * box.Value, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c });
             var built = this.reports.ToArray();
             Assert.IsTrue(built.Length > 0, "no report from the constructor");
             Assert.IsFalse(built.Any(r => r.AtSubscribe));
@@ -165,9 +165,9 @@ namespace SimpleTesting
         [TestMethod, TestCategory("Gated")]
         public void MapReduceSecondBuildUnderCacheReportsAtSubscribe()
         {
-            int mult = 10;
+            var box = new CapturedBox { Value = 10 };
             var result = Input().TumblingWindowLifetime(5)
-                .GroupAggregate(e => e.Key * mult, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c });
+                .GroupAggregate(e => e.Key * box.Value, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c });
             var built = this.reports.Count;
 
             using (var cache = result.Cache())
@@ -296,17 +296,18 @@ namespace SimpleTesting
             Assert.AreEqual("the ingress payload type is an anonymous type", report.Detail);
         }
 
-        // The key selector reads a captured local, so the grouping operator's generated code does not compile.
+        // The key selector reads a field of a captured object, so the grouping operator's generated code does
+        // not compile.
         // Trill caches the failed result, so the second build skips the generator; it must still carry the
         // exception.
         [TestMethod, TestCategory("Gated")]
         public void GroupReportsCodeGenerationFailureOnEveryBuild()
         {
-            int mult = 10;
+            var box = new CapturedBox { Value = 10 };
             for (int build = 0; build < 2; build++)
             {
                 Run(Input().TumblingWindowLifetime(5)
-                    .GroupAggregate(e => e.Key * mult, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c }));
+                    .GroupAggregate(e => e.Key * box.Value, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c }));
 
                 var report = OnePerBuild();
                 Assert.AreEqual(RowModeReason.CodeGenerationFailed, report.Reason);
@@ -340,7 +341,7 @@ namespace SimpleTesting
         [TestMethod, TestCategory("Gated")]
         public void MultiBranchShuffleReportsAtSubscribe()
         {
-            int mult = 10;
+            var box = new CapturedBox { Value = 10 };
             using (new ConfigModifier().DefaultScheduler(StreamScheduler.OwnedThreads(2)).Modify())
             {
                 var input = new Subject<StreamEvent<CapturedInput>>();
@@ -348,7 +349,7 @@ namespace SimpleTesting
                     input.ToStreamable(),
                     null,
                     (l, r) => l,
-                    e => e.Key * mult,
+                    e => e.Key * box.Value,
                     s => s.Count(),
                     (k, c) => new KeyCount { Key = k, Count = c });
                 Assert.IsFalse(this.reports.Any(r => r.AtSubscribe));
@@ -381,12 +382,12 @@ namespace SimpleTesting
         [TestMethod, TestCategory("Gated")]
         public void MultiBranchNestedShuffleReportsAtSubscribe()
         {
-            int mult = 10;
+            var box = new CapturedBox { Value = 10 };
             using (new ConfigModifier().DefaultScheduler(StreamScheduler.OwnedThreads(2)).Modify())
             {
                 var input = new Subject<StreamEvent<CapturedInput>>();
                 var result = input.ToStreamable()
-                    .GroupApply(e => e.Key * mult, g => g.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c });
+                    .GroupApply(e => e.Key * box.Value, g => g.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c });
 
                 Exception error = null;
                 using (var done = new System.Threading.ManualResetEventSlim())
@@ -413,12 +414,12 @@ namespace SimpleTesting
         [TestMethod, TestCategory("Gated")]
         public void MapReduceReportsWhenConstructed()
         {
-            int mult = 10;
+            var box = new CapturedBox { Value = 10 };
             _ = new MapReduceStreamable<CapturedInput, CapturedInput, int, CapturedInput, ulong, KeyCount>(
                 Input(),
                 null,
                 (l, r) => l,
-                e => e.Key * mult,
+                e => e.Key * box.Value,
                 s => s.TumblingWindowLifetime(5).Count(),
                 (k, c) => new KeyCount { Key = k, Count = c });
 

@@ -306,6 +306,8 @@ namespace Microsoft.StreamProcessing
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(predicate, nameof(predicate));
 
+            predicate = predicate.InlineCapturedValues();
+
             return source is IFusibleStreamable<TKey, TPayload> s
                 ? s.FuseWhere(predicate)
                 : (IStreamable<TKey, TPayload>)new WhereStreamable<TKey, TPayload>(source, predicate);
@@ -334,6 +336,8 @@ namespace Microsoft.StreamProcessing
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
 
+            selector = selector.InlineCapturedValues();
+
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelectMany(selector, false, false)
                 ? s.FuseSelectMany(selector)
                 : (IStreamable<TKey, TResult>)new SelectManyStreamable<TKey, TPayload, TResult>(source, selector);
@@ -348,6 +352,8 @@ namespace Microsoft.StreamProcessing
         {
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
+
+            selector = selector.InlineCapturedValues();
 
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelectMany(selector, true, false)
                 ? s.FuseSelectMany(selector)
@@ -364,6 +370,8 @@ namespace Microsoft.StreamProcessing
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
 
+            selector = selector.InlineCapturedValues();
+
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelectMany(selector, false, true)
                 ? s.FuseSelectManyWithKey(selector)
                 : (IStreamable<TKey, TResult>)new SelectManyStreamable<TKey, TPayload, TResult>(source, selector, hasKey: true);
@@ -378,6 +386,8 @@ namespace Microsoft.StreamProcessing
         {
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
+
+            selector = selector.InlineCapturedValues();
 
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelectMany(selector, true, true)
                 ? s.FuseSelectManyWithKey(selector)

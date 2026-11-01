@@ -17,11 +17,11 @@ namespace Microsoft.StreamProcessing
             IStreamable<TKey, TPayload> source,
             LambdaExpression startTimeSelector,
             LambdaExpression durationSelector)
-            : base(source, source.Properties.AlterLifetime(durationSelector))
+            : base(source, source.Properties.AlterLifetime(durationSelector = durationSelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
 
-            this.StartTimeSelector = startTimeSelector;
+            this.StartTimeSelector = startTimeSelector.InlineCapturedValues();
             this.DurationSelector = durationSelector;
         }
 

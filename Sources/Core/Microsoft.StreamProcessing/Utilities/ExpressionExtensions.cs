@@ -71,6 +71,24 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
+        /// Returns text that identifies <paramref name="e"/> in a cache of generated code. That is its C# text,
+        /// which keeps every constant exact, such as a NaN's bits. If <paramref name="e"/> cannot be written as
+        /// C#, it is its debug text with a prefix: code generation fails for such an expression anyway, and falls
+        /// back or throws by the usual policy, so the cache only records that failure.
+        /// </summary>
+        public static string CacheKeyText(this Expression e)
+        {
+            try
+            {
+                return e.ExpressionToCSharp();
+            }
+            catch (Exception)
+            {
+                return "unrendered: " + e.ToString();
+            }
+        }
+
+        /// <summary>
         /// Given an expression, <paramref name="function"/>, that is a LambdaExpression,
         /// returns the body of the lambda
         /// with all references to parameters replaced by the corresponding string from

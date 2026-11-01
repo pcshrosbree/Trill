@@ -23,7 +23,7 @@ namespace Microsoft.StreamProcessing
             IEqualityComparerExpression<TOuterKey> comparer,
             IStreamable<CompoundGroupKey<TOuterKey, TInnerKey>, TInnerResult> source,
             Expression<Func<TInnerKey, TInnerResult, TResult>> resultSelector)
-            : base(source.Properties.Ungroup(resultSelector))
+            : base(source.Properties.Ungroup(resultSelector = resultSelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
             Contract.Requires(resultSelector != null);
@@ -110,7 +110,7 @@ namespace Microsoft.StreamProcessing
         public UngroupStreamable(
             IStreamable<TInnerKey, TInnerResult> source,
             Expression<Func<TInnerKey, TInnerResult, TResult>> resultSelector)
-            : base(source.Properties.Ungroup(resultSelector))
+            : base(source.Properties.Ungroup(resultSelector = resultSelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
             Contract.Requires(resultSelector != null);

@@ -33,10 +33,10 @@ namespace Microsoft.StreamProcessing
         public Group<#= nestedInfix #>Streamable(
             IStreamable<TOuterKey, TSource> source, Expression<Func<TSource, TInnerKey>> keySelector)
 <# if (i == 0) { #>
-            : base(source.Properties.GroupNested(keySelector))
+            : base(source.Properties.GroupNested(keySelector = keySelector.InlineCapturedValues()))
 <# }
 else { #>
-            : base(source.Properties.Group(keySelector))
+            : base(source.Properties.Group(keySelector = keySelector.InlineCapturedValues()))
 <# } #>
         {
             Contract.Requires(source != null);
@@ -86,7 +86,7 @@ else { #>
             if (typeOfTInnerKey.IsAnonymousType()) return RefuseUnsupported("the grouping key is an anonymous type");
 
 <# } #>
-            var lookupKey = CacheKey.Create(KeySelector.ToString());
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
 
 <# if (i == 0) { #>
             var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();
@@ -100,7 +100,7 @@ else { #>
 
         private IStreamObserver<TOuterKey, TSource> GetPipe(IStreamObserver<<#= innerKey #>, TSource> observer)
         {
-            var lookupKey = CacheKey.Create(KeySelector.ToString());
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
 
  <# if (i == 0) { #>
             var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();

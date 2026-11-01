@@ -76,7 +76,7 @@ namespace Microsoft.StreamProcessing
         internal readonly IAggregate<TInput, TState, TOutput> Aggregate;
 
         public SnapshotWindowStreamable(IStreamable<TKey, TInput> source, IAggregate<TInput, TState, TOutput> aggregate)
-            : base(source, source.Properties.Snapshot(aggregate))
+            : base(source, source.Properties.Snapshot(aggregate = aggregate.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
 

@@ -23,7 +23,7 @@ namespace Microsoft.StreamProcessing
         private readonly Expression<Func<TLeft, TRight, TResult>> Selector;
 
         public EquiJoinStreamable(IStreamable<TKey, TLeft> left, IStreamable<TKey, TRight> right, Expression<Func<TLeft, TRight, TResult>> selector)
-            : base(left.Properties.Join(right.Properties, selector), left, right)
+            : base(left.Properties.Join(right.Properties, selector = selector.InlineCapturedValues()), left, right)
         {
             Contract.Requires(selector != null);
 

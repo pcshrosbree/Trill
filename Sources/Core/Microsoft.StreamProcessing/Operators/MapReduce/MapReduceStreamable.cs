@@ -31,7 +31,7 @@ namespace Microsoft.StreamProcessing
             bool leftAsymmetric = false)
             : base(
             sourceLeft.Properties.MapReduce
-            (sourceRight?.Properties, mapper, keySelector, reducer, resultSelector))
+            (sourceRight?.Properties, mapper, keySelector = keySelector.InlineCapturedValues(), reducer, resultSelector = resultSelector.InlineCapturedValues()))
         {
             Contract.Requires(sourceLeft != null);
 
@@ -234,7 +234,7 @@ namespace Microsoft.StreamProcessing
             bool leftAsymmetric = false)
             : base(
             sourceLeft.Properties.MapReduce
-            (sourceRight?.Properties, mapper, keySelector, reducer, resultSelector))
+            (sourceRight?.Properties, mapper, keySelector = keySelector.InlineCapturedValues(), reducer, resultSelector = resultSelector.InlineCapturedValues()))
         {
             Contract.Requires(sourceLeft != null);
 

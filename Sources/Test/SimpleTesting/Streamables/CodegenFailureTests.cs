@@ -14,15 +14,15 @@ namespace SimpleTesting
         public CodegenFailureTests()
             : base(new ConfigModifier().ForceRowBasedExecution(false).DontFallBackToRowBasedExecution(true)) { }
 
-        // The key selector reads a captured local, a field of the compiler's closure class. The generated
-        // grouping code names that class, which is not a valid C# name, so it does not compile.
+        // The key selector reads a field of a captured object, through the compiler's closure class. The
+        // generated grouping code names that class, which is not a valid C# name, so it does not compile.
         [TestMethod, TestCategory("Gated")]
-        public void CapturedLocalNamesOperatorAndKeepsCause()
+        public void CapturedObjectNamesOperatorAndKeepsCause()
         {
-            int mult = 10;
+            var box = new CapturedBox { Value = 10 };
             var e = Assert.ThrowsException<InvalidOperationException>(() => Run(Input()
                 .TumblingWindowLifetime(5)
-                .GroupAggregate(x => x.Key * mult, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c })));
+                .GroupAggregate(x => x.Key * box.Value, w => w.Count(), (g, c) => new KeyCount { Key = g.Key, Count = c })));
 
             AssertContains(e.Message, "Operator: Group.");
             AssertContains(e.Message, "error CS");

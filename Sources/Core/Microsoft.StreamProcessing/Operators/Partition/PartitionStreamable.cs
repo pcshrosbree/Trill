@@ -18,7 +18,7 @@ namespace Microsoft.StreamProcessing
 
         public PartitionStreamable(
             IStreamable<Empty, TPayload> source, Expression<Func<TPayload, TPartitionKey>> keySelector, long partitionLag)
-            : base(source.Properties.Partition(keySelector))
+            : base(source.Properties.Partition(keySelector = keySelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
             Contract.Requires(keySelector != null);

@@ -27,6 +27,8 @@ namespace Microsoft.StreamProcessing
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
 
+            selector = selector.InlineCapturedValues();
+
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelect(selector, false, false)
                 ? s.FuseSelect(selector)
                 : (IStreamable<TKey, TResult>)new SelectStreamable<TKey, TPayload, TResult>(source, selector);
@@ -43,6 +45,8 @@ namespace Microsoft.StreamProcessing
         {
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
+
+            selector = selector.InlineCapturedValues();
 
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelect(selector, true, false)
                 ? s.FuseSelect(selector)
@@ -61,6 +65,8 @@ namespace Microsoft.StreamProcessing
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
 
+            selector = selector.InlineCapturedValues();
+
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelect(selector, false, true)
                 ? s.FuseSelectWithKey(selector)
                 : (IStreamable<TKey, TResult>)new SelectStreamable<TKey, TPayload, TResult>(source, selector, hasKey: true);
@@ -77,6 +83,8 @@ namespace Microsoft.StreamProcessing
         {
             Invariant.IsNotNull(source, nameof(source));
             Invariant.IsNotNull(selector, nameof(selector));
+
+            selector = selector.InlineCapturedValues();
 
             return source is IFusibleStreamable<TKey, TPayload> s && s.CanFuseSelect(selector, true, true)
                 ? s.FuseSelectWithKey(selector)

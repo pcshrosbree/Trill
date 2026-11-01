@@ -23,7 +23,10 @@ namespace Microsoft.StreamProcessing
         internal readonly IAggregate<TInput, TState, TOutput> Aggregate;
 
         public GroupedWindowStreamable(IStreamable<Empty, TInput> source, IAggregate<TInput, TState, TOutput> aggregate, Expression<Func<TInput, TKey>> keySelector, Expression<Func<TKey, TOutput, TResult>> resultSelector)
-            : base(source, source.Properties.Group(keySelector).Snapshot(aggregate).Ungroup(resultSelector))
+            : base(source, source.Properties
+                .Group(keySelector = keySelector.InlineCapturedValues())
+                .Snapshot(aggregate = aggregate.InlineCapturedValues())
+                .Ungroup(resultSelector = resultSelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
 
@@ -47,18 +50,32 @@ namespace Microsoft.StreamProcessing
             if (!typeOfTInput.CanRepresentAsColumnar()) return RefuseType(typeOfTInput);
             if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
 
-            var lookupKey = CacheKey.Create(this.KeySelector.ExpressionToCSharp(), this.ResultSelector.ExpressionToCSharp());
-
-            var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupedWindowTemplate.Generate(this));
+            var generatedPipeType = GeneratedPipeType();
 
             return Generated(generatedPipeType);
         }
 
+        // The generated pipe can contain the aggregate's expressions as code, so two aggregates that differ only in
+        // a constant need different pipes.
+        private Tuple<Type, string> GeneratedPipeType()
+        {
+            var a = this.Aggregate;
+            var lookupKey = CacheKey.Create(
+                this.KeySelector.ExpressionToCSharp(),
+                this.ResultSelector.ExpressionToCSharp(),
+                string.Join(
+                    "\n",
+                    a.InitialState().CacheKeyText(),
+                    a.Accumulate().CacheKeyText(),
+                    a.Deaccumulate().CacheKeyText(),
+                    a.Difference().CacheKeyText(),
+                    a.ComputeResult().CacheKeyText()));
+            return cachedPipes.GetOrAdd(lookupKey, key => GroupedWindowTemplate.Generate(this));
+        }
+
         private IStreamObserver<Empty, TInput> GetPipe(IStreamObserver<Empty, TResult> observer)
         {
-            var lookupKey = CacheKey.Create(this.KeySelector.ExpressionToCSharp(), this.ResultSelector.ExpressionToCSharp());
-
-            var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupedWindowTemplate.Generate(this));
+            var generatedPipeType = GeneratedPipeType();
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new GroupedWindowPlanNode<TInput, TState, TOutput>(
                 p, o, typeof(TKey), typeof(TInput), typeof(TOutput), this.Aggregate, this.KeySelector, this.ResultSelector,
                 true, generatedPipeType.Item2));

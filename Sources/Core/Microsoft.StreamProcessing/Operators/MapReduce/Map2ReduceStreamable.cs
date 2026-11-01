@@ -60,9 +60,9 @@ namespace Microsoft.StreamProcessing
                     mapper1,
                     mapper2,
                     reducer,
-                    keySelector1,
-                    keySelector2,
-                    resultSelector,
+                    keySelector1 = keySelector1.InlineCapturedValues(),
+                    keySelector2 = keySelector2.InlineCapturedValues(),
+                    resultSelector = resultSelector.InlineCapturedValues(),
                     reduceOptions))
         {
             Contract.Requires(sourceLeft1 != null);
@@ -304,9 +304,9 @@ namespace Microsoft.StreamProcessing
                     mapper1,
                     mapper2,
                     reducer,
-                    keySelector1,
-                    keySelector2,
-                    resultSelector,
+                    keySelector1 = keySelector1.InlineCapturedValues(),
+                    keySelector2 = keySelector2.InlineCapturedValues(),
+                    resultSelector = resultSelector.InlineCapturedValues(),
                     reduceOptions))
         {
             Contract.Requires(sourceLeft1 != null);

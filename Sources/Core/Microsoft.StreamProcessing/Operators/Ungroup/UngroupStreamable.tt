@@ -35,7 +35,7 @@ namespace Microsoft.StreamProcessing
             <#= i == 0 ? @"IEqualityComparerExpression<TOuterKey> comparer,
             " : string.Empty #>IStreamable<<#= innerKey #>, TInnerResult> source,
             Expression<Func<TInnerKey, TInnerResult, TResult>> resultSelector)
-            : base(source.Properties.Ungroup(resultSelector))
+            : base(source.Properties.Ungroup(resultSelector = resultSelector.InlineCapturedValues()))
         {
             Contract.Requires(source != null);
             Contract.Requires(resultSelector != null);

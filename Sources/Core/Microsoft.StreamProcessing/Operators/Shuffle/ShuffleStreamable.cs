@@ -120,7 +120,7 @@ namespace Microsoft.StreamProcessing
                 inlinedHashCodeComputation = keyEqComparer.GetGetHashCodeExpr().Inline("key");
             }
 
-            var lookupKey = CacheKey.Create(KeySelector.ToString(), inlinedHashCodeComputation, powerOf2);
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(this.KeySelector, inlinedHashCodeComputation, true, this.powerOf2));
 
             return Generated(generatedPipeType);
@@ -140,7 +140,7 @@ namespace Microsoft.StreamProcessing
                 inlinedHashCodeComputation = keyEqComparer.GetGetHashCodeExpr().Inline("key");
             }
 
-            var lookupKey = CacheKey.Create(KeySelector.ToString(), inlinedHashCodeComputation, powerOf2);
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(this.KeySelector, inlinedHashCodeComputation, true, this.powerOf2));
 
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new GroupPlanNode(
@@ -271,7 +271,7 @@ namespace Microsoft.StreamProcessing
                 inlinedHashCodeComputation = keyEqComparer.GetGetHashCodeExpr().Inline("key");
             }
 
-            var lookupKey = CacheKey.Create(KeySelector.ToString(), inlinedHashCodeComputation, powerOf2);
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(this.KeySelector, inlinedHashCodeComputation, false, this.powerOf2));
 
             return Generated(generatedPipeType);
@@ -291,7 +291,7 @@ namespace Microsoft.StreamProcessing
                 inlinedHashCodeComputation = keyEqComparer.GetGetHashCodeExpr().Inline("key");
             }
 
-            var lookupKey = CacheKey.Create(KeySelector.ToString(), inlinedHashCodeComputation, powerOf2);
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), inlinedHashCodeComputation, powerOf2);
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => ShuffleTemplate.Generate<TOuterKey, TSource, TInnerKey>(this.KeySelector, inlinedHashCodeComputation, false, this.powerOf2));
 
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new GroupPlanNode(
