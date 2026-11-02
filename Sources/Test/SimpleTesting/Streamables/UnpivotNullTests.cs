@@ -75,6 +75,28 @@ namespace SimpleTesting
         public UnpivotNullBox NullProperty { get; set; }
     }
 
+    public sealed class UnpivotNullBoxPair
+    {
+        public string Key;
+        public UnpivotNullBox First;
+
+        public UnpivotNullBox Second { get; set; }
+    }
+
+    public sealed class UnpivotNullBoxRow
+    {
+        public string Key;
+        public string Attribute;
+        public UnpivotNullBox Value;
+    }
+
+    public sealed class UnpivotNullObjectRow
+    {
+        public string Key;
+        public string Attribute;
+        public object Value;
+    }
+
     public sealed class UnpivotNullIntRow
     {
         public string Key;
@@ -168,6 +190,94 @@ namespace SimpleTesting
 
             CollectionAssert.AreEqual(new[] { "1:a:EmptyField=empty", "1:a:EmptyProperty=empty" }, Events(result, r => r.Key + ":" + r.Attribute + "=" + r.Value));
         }
+
+        // With a value field of a class type, a member is null only when the reference is null, whatever its
+        // == operator says: an empty box, which its == (UnpivotNullBox, object) calls null, is still emitted.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotClassValueComparesReferences()
+        {
+            var result = Input(v => new UnpivotNullBoxPair { Key = "a", First = new UnpivotNullBox(), Second = new UnpivotNullBox() })
+                .Unpivot(() => new UnpivotNullBoxRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:First=empty", "1:a:Second=empty" }, Events(result, r => r.Key + ":" + r.Attribute + "=" + r.Value));
+        }
+
+        // With a value field of a class type, a null field or a null property is skipped.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotClassValueSkipsNullReferences()
+        {
+            var nullField = Input(v => new UnpivotNullBoxPair { Key = "a", First = null, Second = new UnpivotNullBox { Content = v } })
+                .Unpivot(() => new UnpivotNullBoxRow(), p => p.Key, r => r.Attribute, r => r.Value);
+            var nullProperty = Input(v => new UnpivotNullBoxPair { Key = "a", First = new UnpivotNullBox { Content = v }, Second = null })
+                .Unpivot(() => new UnpivotNullBoxRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:Second=1" }, Events(nullField, r => r.Key + ":" + r.Attribute + "=" + r.Value));
+            CollectionAssert.AreEqual(new[] { "1:a:First=1" }, Events(nullProperty, r => r.Key + ":" + r.Attribute + "=" + r.Value));
+        }
+
+        // Value-type members are boxed into an object value field.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotIntFieldsToObjectValue()
+        {
+            var result = Input(v => new UnpivotNullIntFields { Key = "a", Low = v, High = v * 10 })
+                .Unpivot(() => new UnpivotNullObjectRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10", "1:a:Low=Int32 1" }, Events(result, ShowObject));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotIntPropertiesToObjectValue()
+        {
+            var result = Input(v => new UnpivotNullIntProperties { Key = "a", Low = v, High = v * 10 })
+                .Unpivot(() => new UnpivotNullObjectRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10", "1:a:Low=Int32 1" }, Events(result, ShowObject));
+        }
+
+        // A nullable member's value is boxed into an object value field, and a null one is skipped.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotNullableFieldsToObjectValue()
+        {
+            var result = Input(v => new UnpivotNullNullableFields { Key = "a", Low = null, High = v * 10 })
+                .Unpivot(() => new UnpivotNullObjectRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10" }, Events(result, ShowObject));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotNullablePropertiesToObjectValue()
+        {
+            var result = Input(v => new UnpivotNullNullableProperties { Key = "a", Low = null, High = v * 10 })
+                .Unpivot(() => new UnpivotNullObjectRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10" }, Events(result, ShowObject));
+        }
+
+        // A reference-type member goes into an object value field as it is, and a null one is skipped.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotStringFieldsToObjectValue()
+        {
+            var result = Input(v => new UnpivotNullStrings { Key = "a", First = "x" + v, Second = null })
+                .Unpivot(() => new UnpivotNullObjectRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:First=String x1" }, Events(result, ShowObject));
+        }
+
+        // Value-type members are boxed into a value field of an interface type as well.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotIntFieldsToInterfaceValue()
+        {
+            var result = Input(v => new UnpivotNullIntFields { Key = "a", Low = v, High = v * 10 })
+                .Unpivot(() => new UnpivotNullComparableRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10", "1:a:Low=Int32 1" }, Events(result, r => ShowValue(r.Key, r.Attribute, r.Value)));
+        }
+
+        private static string ShowObject(UnpivotNullObjectRow r) => ShowValue(r.Key, r.Attribute, r.Value);
+
+        // Names the value's runtime type, so a value stored without boxing fails here rather than passing as a number.
+        private static string ShowValue(string key, string attribute, object value)
+            => key + ":" + attribute + "=" + (value == null ? "null" : value.GetType().Name + " " + value);
 
         private static IStreamable<Empty, T> Input<T>(Func<int, T> make)
             => new[] { StreamEvent.CreateInterval(1, 5, make(1)) }.ToObservable().ToStreamable();

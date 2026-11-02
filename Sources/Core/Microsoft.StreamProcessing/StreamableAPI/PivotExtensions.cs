@@ -313,14 +313,6 @@ namespace Microsoft.StreamProcessing
                                 Expression.IsFalse(Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "HasValue")),
                                 new[] { input }).Compile());
                     }
-                    else if (valueField.Type.GetTypeInfo().IsClass)
-                    {
-                        if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.PropertyType)) continue;
-                        this.isNull.Add(
-                            field.Name, Expression.Lambda<Func<TInput, bool>>(
-                                Expression.Equal(Expression.PropertyOrField(input, field.Name), Expression.Constant(null)),
-                                new[] { input }).Compile());
-                    }
                     else
                     {
                         if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.PropertyType)) continue;
@@ -331,9 +323,11 @@ namespace Microsoft.StreamProcessing
                     {
                         Expression.Bind(
                             valueField.Member,
-                            IsNullable(field.PropertyType)
-                                ? Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "Value")
-                                : Expression.PropertyOrField(input, field.Name))
+                            ToValueType(
+                                IsNullable(field.PropertyType)
+                                    ? Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "Value")
+                                    : Expression.PropertyOrField(input, field.Name),
+                                valueField.Type))
                     };
                     var constructor = Expression.MemberInit(newExpression, keyAssignments.Concat(fieldAssignment));
                     var fieldResult = Expression.Lambda<Func<TInput, string, TResult>>(constructor, input, attribute);
@@ -349,14 +343,6 @@ namespace Microsoft.StreamProcessing
                                 Expression.IsFalse(Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "HasValue")),
                                 new[] { input }).Compile());
                     }
-                    else if (valueField.Type.GetTypeInfo().IsClass)
-                    {
-                        if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.FieldType)) continue;
-                        this.isNull.Add(
-                            field.Name, Expression.Lambda<Func<TInput, bool>>(
-                                Expression.Equal(Expression.PropertyOrField(input, field.Name), Expression.Constant(null)),
-                                new[] { input }).Compile());
-                    }
                     else
                     {
                         if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.FieldType)) continue;
@@ -367,9 +353,11 @@ namespace Microsoft.StreamProcessing
                     {
                         Expression.Bind(
                             valueField.Member,
-                            IsNullable(field.FieldType)
-                                ? Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "Value")
-                                : Expression.PropertyOrField(input, field.Name))
+                            ToValueType(
+                                IsNullable(field.FieldType)
+                                    ? Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "Value")
+                                    : Expression.PropertyOrField(input, field.Name),
+                                valueField.Type))
                     };
                     var constructor = Expression.MemberInit(newExpression, keyAssignments.Concat(fieldAssignment));
                     var fieldResult = Expression.Lambda<Func<TInput, string, TResult>>(constructor, input, attribute);
@@ -382,9 +370,8 @@ namespace Microsoft.StreamProcessing
                 foreach (var att in this.fields) if (!this.isNull[att.Key](obj)) yield return att.Value(obj, att.Key);
             }
 
-            // The null test for a member that is not Nullable<T>, used when the value field's type is not a class.
-            // A value-type member is never null. A reference-type member can reach here when the value field's type
-            // is an interface; it is compared by reference, so a user-defined == operator cannot hide a value.
+            // The null test for a member that is not Nullable<T>. A value-type member is never null. A reference-type
+            // member is compared by reference, so a user-defined == operator cannot hide a value.
             private static Func<TInput, bool> IsNullTest(ParameterExpression input, string memberName, Type memberType)
             {
                 if (memberType.GetTypeInfo().IsValueType) return o => false;
@@ -392,6 +379,11 @@ namespace Microsoft.StreamProcessing
                     Expression.ReferenceEqual(Expression.PropertyOrField(input, memberName), Expression.Constant(null)),
                     new[] { input }).Compile();
             }
+
+            // Expression.Bind accepts a value-type expression for an object or interface member, but the compiled
+            // assignment then stores the value without boxing it. The conversion boxes it.
+            private static Expression ToValueType(Expression value, Type valueType)
+                => value.Type == valueType ? value : Expression.Convert(value, valueType);
         }
 
         private static bool IsNullable(Type type) => type.GetTypeInfo().IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
