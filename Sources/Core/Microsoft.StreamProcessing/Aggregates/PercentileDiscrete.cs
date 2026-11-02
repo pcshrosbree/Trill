@@ -30,7 +30,9 @@ namespace Microsoft.StreamProcessing.Aggregates
             double result = default;
             if (set.TotalCount > 0)
             {
-                int rank = (int)Math.Ceiling(this.percentile * set.TotalCount) - 1;
+                // The value at position ceiling(percentile * count), counting from 1. For a percentile of 0
+                // that position is 0, so take the first value instead, as for any percentile just above 0.
+                int rank = Math.Max(0, (int)Math.Ceiling(this.percentile * set.TotalCount) - 1);
 
                 var enumerator = set.GetEnumerable().GetEnumerator();
                 for (int index = 0; index <= rank; index++) enumerator.MoveNext();
