@@ -533,4 +533,430 @@ public sealed class PageClaimTests
         var right = Operators.Ingress([I(2, 4, v: 10), I(2, 4, v: 20)]);
         Assert.AreEqual("Interval[2,4)a:1 Interval[2,4)a:1", Show(Operators.Collect(left.Join(right, l => l.Key, r => r.Key, (l, r) => l))));
     }
+
+    static EventDto Tick(long t, string k, int v) => I(t, t + 1, k, v);
+
+    /// <summary>A row-mode stream of <paramref name="events"/>.</summary>
+    static IStreamable<Empty, Ev> In(params EventDto[] events)
+    {
+        Config.ForceRowBasedExecution = true;
+        return Operators.Ingress(events);
+    }
+
+    static IStreamable<Empty, Ev> Ticks() => In(Operators.All.Single(e => e.Id == "average").DefaultInputs[0]);
+
+    /// <summary>The distinct numbers of window aggregates that the public overloads of <paramref name="name"/> take.</summary>
+    static string AggregateArities(string name) => string.Join(",", typeof(Streamable)
+        .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+        .Where(m => m.Name == name)
+        .Select(m => m.GetParameters().Count(p => p.ParameterType.IsGenericType
+            && p.ParameterType.GetGenericTypeDefinition() == typeof(Func<,>)
+            && p.ParameterType.GetGenericArguments()[0].IsGenericType
+            && p.ParameterType.GetGenericArguments()[0].GetGenericTypeDefinition() == typeof(Window<,>)))
+        .Where(n => n > 0).Distinct().OrderBy(n => n));
+
+    static string ShowRanks<T>(IStreamable<Empty, List<RankedEvent<T>>> query)
+    {
+        var output = new List<string>();
+        query.ToStreamEventObservable().Where(e => e.IsData).Subscribe(e =>
+            output.Add($"[{e.StartTime},{e.EndTime})" + string.Join(",", e.Payload.Select(r => r.Rank + ":" + r.Payload))));
+        return string.Join(" ", output);
+    }
+
+    // group-aggregate.md: GroupAggregate gives the same output as GroupApply running Aggregate on each group.
+    [TestMethod]
+    public void GroupAggregateIsGroupApplyWithAggregate()
+    {
+        var entry = Operators.All.Single(e => e.Id == "group-aggregate");
+        Assert.AreEqual(Show(Operators.Run(entry, entry.DefaultInputs)),
+            Show(Operators.Collect(In(entry.DefaultInputs[0]).TumblingWindowLifetime(5).GroupApply(e => e.Key,
+                g => g.Aggregate(w => w.Count(), w => w.Sum(e => e.Value), (count, sum) => new Out(null, "count " + count + ", sum " + sum)),
+                (g, r) => new Out(g.Key, r.Label)))));
+    }
+
+    // group-aggregate.md: "from one to fifteen aggregates"; aggregate.md: "up to fifteen aggregates".
+    [TestMethod]
+    public void GroupAggregateAndAggregateTakeOneToFifteenAggregates()
+    {
+        var oneToFifteen = string.Join(",", Enumerable.Range(1, 15));
+        Assert.AreEqual(oneToFifteen, AggregateArities("GroupAggregate"));
+        Assert.AreEqual(oneToFifteen, AggregateArities("Aggregate"));
+    }
+
+    // group-aggregate.md, known issue: in columnar mode, on a stream whose events never end, a string
+    // result throws NullReferenceException; another result type, or row mode, gives the right answer.
+    // This pins the engine defect as it is today: when it is fixed, this test fails, and
+    // group-aggregate.md's known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    [DoNotParallelize]
+    public void GroupAggregateKnownIssueColumnarStringResultOnStartEdges()
+    {
+        var input = Operators.All.Single(e => e.Id == "average").DefaultInputs[0];
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            var columnar = Operators.Ingress(input).AlterEventDuration(StreamEvent.InfinitySyncTime);
+            Assert.ThrowsExactly<NullReferenceException>(() =>
+                Operators.Collect(columnar.GroupAggregate(e => e.Key, w => w.Count(), (g, n) => g.Key + " " + n)));
+            Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:1 End[1,4)a:1 Start[4,inf)a:2 End[2,7)b:1 Start[7,inf)b:2 End[4,9)a:2 Start[9,inf)a:3",
+                Show(Operators.Collect(columnar.GroupAggregate(e => e.Key, w => w.Count(), (g, n) => new Ev { Key = g.Key, Value = (int)n }))));
+
+            Config.ForceRowBasedExecution = true;
+            Assert.AreEqual("Start[1,inf)a 1: Start[2,inf)b 1: End[1,4)a 1: Start[4,inf)a 2: End[2,7)b 1: Start[7,inf)b 2: End[4,9)a 2: Start[9,inf)a 3:",
+                Show(Operators.Collect(Operators.Ingress(input).AlterEventDuration(StreamEvent.InfinitySyncTime)
+                    .GroupAggregate(e => e.Key, w => w.Count(), (g, n) => g.Key + " " + n))));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
+    // group-aggregate.md, known issue: in columnar mode, on a stream whose events never end, the GroupApply form
+    // gives each later result of a group the start time of the group's first result (1, 2 and 1 where
+    // GroupAggregate gives 4, 7 and 9), so the two forms differ. This pins the engine defect as it is today:
+    // when it is fixed, this test fails, and group-aggregate.md's known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    [DoNotParallelize]
+    public void GroupAggregateKnownIssueColumnarGroupApplyStartTimes()
+    {
+        var input = Operators.All.Single(e => e.Id == "average").DefaultInputs[0];
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            var columnar = Operators.Ingress(input).AlterEventDuration(StreamEvent.InfinitySyncTime);
+            Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:1 End[1,4)a:1 Start[4,inf)a:2 End[2,7)b:1 Start[7,inf)b:2 End[4,9)a:2 Start[9,inf)a:3",
+                Show(Operators.Collect(columnar.GroupAggregate(e => e.Key, w => w.Count(), (g, n) => new Ev { Key = g.Key, Value = (int)n }))));
+            Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:1 End[1,4)a:1 Start[1,inf)a:2 End[2,7)b:1 Start[2,inf)b:2 End[1,9)a:2 Start[1,inf)a:3",
+                Show(Operators.Collect(columnar.GroupApply(e => e.Key, g => g.Aggregate(w => w.Count()), (g, n) => new Ev { Key = g.Key, Value = (int)n }))));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
+    // aggregate.md: "Average(e => e.Value) is Aggregate(w => w.Average(e => e.Value))", and the same for Sum.
+    [TestMethod]
+    public void SingleAggregatesAreAggregateWithOneWindowAggregate()
+    {
+        var input = Ticks().TumblingWindowLifetime(5);
+        Assert.AreEqual("Interval[5,10)2 Interval[10,15)4.5", Show(Operators.Collect(input.Aggregate(w => w.Average(e => e.Value)))));
+        Assert.AreEqual(Show(Operators.Collect(input.Average(e => e.Value))), Show(Operators.Collect(input.Aggregate(w => w.Average(e => e.Value)))));
+        Assert.AreEqual(Show(Operators.Collect(input.Sum(e => e.Value))), Show(Operators.Collect(input.Aggregate(w => w.Sum(e => e.Value)))));
+    }
+
+    // average.md: with a nullable selector, nulls are left out, and a window whose values are all null gives null.
+    [TestMethod]
+    public void AverageLeavesOutNulls()
+    {
+        var input = In(Tick(1, "a", 1), Tick(2, "b", 2), Tick(3, "a", 4), Tick(6, "b", 5)).TumblingWindowLifetime(5);
+        Assert.AreEqual("Interval[5,10)2.5 Interval[10,15)null",
+            Show(Operators.Collect(input.Average(e => e.Key == "b" ? (int?)null : e.Value)
+                .Select(a => new Out(null, a == null ? "null" : a.Value.ToString())))));
+    }
+
+    // average.md: "A window with no events in it gives no output."
+    [TestMethod]
+    public void AverageGivesNoOutputForAnEmptyWindow() =>
+        Assert.AreEqual("Interval[2,4)1 Interval[8,10)3",
+            Show(Operators.Collect(In(Tick(1, "a", 1), Tick(7, "a", 3)).TumblingWindowLifetime(2).Average(e => e.Value))));
+
+    // min.md: a comparison reverses the order, so Min with (x, y) => y.CompareTo(x) gives the largest value;
+    // nulls are left out, and a window whose values are all null gives null.
+    [TestMethod]
+    public void MinWithAComparisonAndWithNulls()
+    {
+        var hopping = Ticks().HoppingWindowLifetime(4, 2);
+        Assert.AreEqual("Start[2,inf)2 End[2,4)2 Start[4,inf)3 End[4,6)3 Start[6,inf)3 End[6,8)3 Start[8,inf)4 End[8,10)4 Start[10,inf)5 End[10,12)5 Start[12,inf)5 End[12,14)5",
+            Show(Operators.Collect(hopping.Min(e => e.Value, (x, y) => y.CompareTo(x)))));
+        var tumbling = In(Tick(1, "a", 1), Tick(2, "b", 2), Tick(6, "a", 5)).TumblingWindowLifetime(5);
+        Assert.AreEqual("Interval[5,10)2 Interval[10,15)null",
+            Show(Operators.Collect(tumbling.Min(e => e.Key == "a" ? (int?)null : e.Value)
+                .Select(m => new Out(null, m == null ? "null" : m.Value.ToString())))));
+    }
+
+    // max.md: after TumblingWindowLifetime(4), one maximum per window; a comparison reverses the order;
+    // nulls are left out, and a window whose values are all null gives null.
+    [TestMethod]
+    public void MaxPerWindowWithAComparisonAndWithNulls()
+    {
+        Assert.AreEqual("Interval[4,8)3 Interval[8,12)4 Interval[12,16)5",
+            Show(Operators.Collect(Ticks().TumblingWindowLifetime(4).Max(e => e.Value))));
+        var entry = Operators.All.Single(e => e.Id == "max");
+        Assert.AreEqual("Start[1,inf)1 End[1,3)1 Start[3,inf)1 End[3,4)1 Start[4,inf)1 End[4,6)1 Start[6,inf)2 End[6,7)2 Start[7,inf)2 End[7,8)2",
+            Show(Operators.Collect(In(entry.DefaultInputs[0]).Max(e => e.Value, (x, y) => y.CompareTo(x)))));
+        var tumbling = In(Tick(1, "a", 1), Tick(2, "b", 2), Tick(6, "a", 5)).TumblingWindowLifetime(5);
+        Assert.AreEqual("Interval[5,10)2 Interval[10,15)null",
+            Show(Operators.Collect(tumbling.Max(e => e.Key == "a" ? (int?)null : e.Value)
+                .Select(m => new Out(null, m == null ? "null" : m.Value.ToString())))));
+    }
+
+    // top-k.md: with fewer than k events alive the list is shorter; a comparison reverses the order.
+    [TestMethod]
+    public void TopKShortListAndComparison()
+    {
+        var input = Ticks().TumblingWindowLifetime(5);
+        Assert.AreEqual("Interval[5,10)1. a:3, 2. b:2, 3. a:1 Interval[10,15)1. a:5, 2. b:4",
+            Show(Operators.Collect(input.TopK(e => e.Value, 3))));
+        Assert.AreEqual("Interval[5,10)1. a:1, 2. b:2 Interval[10,15)1. b:4, 2. a:5",
+            Show(Operators.Collect(input.TopK(e => e.Value, (x, y) => y.CompareTo(x), 2))));
+    }
+
+    // top-k.md: on a payload that can be compared, such as int, tied values share a rank, the next rank
+    // skips, and all the values tied for the last place are kept, so the list can be longer than k.
+    [TestMethod]
+    public void TopKTiesShareARank()
+    {
+        var values = In(Tick(1, "a", 5), Tick(2, "a", 3), Tick(3, "a", 3), Tick(4, "a", 1)).Select(e => e.Value).TumblingWindowLifetime(5);
+        Assert.AreEqual("[5,10)1:5,2:3,2:3", ShowRanks(values.TopK(2)));
+        Assert.AreEqual("[5,10)1:5,2:3,2:3,4:1", ShowRanks(values.TopK(4)));
+    }
+
+    // top-k.md, known issue: when two live events tie on the ordering value and Trill has no comparison for the
+    // payload type, as for Ev, TopK throws ArgumentException; int (TopKTiesShareARank), string, anonymous-type
+    // and Tuple payloads work. This pins the engine defect as it is today: when it is fixed, this test fails,
+    // and top-k.md's known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    public void TopKKnownIssueTiesOnAPayloadThatCannotBeCompared()
+    {
+        var tie = In(Tick(1, "a", 5), Tick(2, "b", 5)).TumblingWindowLifetime(5);
+        var thrown = Assert.ThrowsExactly<ArgumentException>(() => Operators.Collect(tie.TopK(e => e.Value, 2)));
+        StringAssert.Contains(thrown.Message, "At least one object must implement IComparable");
+        Assert.AreEqual("[5,10)1:a5,1:b5", ShowRanks(tie.Select(e => e.Key + e.Value).TopK(s => s.Length, 2)));
+        Assert.AreEqual("[5,10)1:{ Key = a, Value = 5 },1:{ Key = b, Value = 5 }",
+            ShowRanks(tie.Select(e => new { e.Key, e.Value }).TopK(p => p.Value, 2)));
+        Assert.AreEqual("[5,10)1:(a, 5),1:(b, 5)", ShowRanks(tie.Select(e => Tuple.Create(e.Key, e.Value)).TopK(p => p.Item2, 2)));
+        var noTie = In(Tick(1, "a", 5), Tick(2, "b", 4)).TumblingWindowLifetime(5);
+        Assert.AreEqual("Interval[5,10)1. a:5, 2. b:4", Show(Operators.Collect(noTie.TopK(e => e.Value, 2))));
+    }
+
+    // percentile-continuous.md: the two definitions at p = 0.25 over 1, 2, 3 and over 4, 5.
+    [TestMethod]
+    public void PercentileDefinitions() =>
+        Assert.AreEqual("Interval[5,10)1.5 1 Interval[10,15)4.25 4",
+            Show(Operators.Collect(Ticks().TumblingWindowLifetime(5).Aggregate(
+                w => w.PercentileContinuous(0.25, e => e.Value), w => w.PercentileDiscrete(0.25, e => e.Value),
+                (c, d) => new Out(null, c + " " + d)))));
+
+    // percentile-continuous.md: a comparison that reverses the order makes the percentile count from the
+    // largest value, so 0.25 under it is 0.75 without it; a percentile outside 0 to 1 throws when the query is built.
+    [TestMethod]
+    public void PercentileComparisonAndRange()
+    {
+        var input = Ticks().TumblingWindowLifetime(5);
+        var reversed = Show(Operators.Collect(input.Aggregate(w => w.PercentileContinuous((x, y) => y.CompareTo(x), 0.25, e => e.Value))));
+        Assert.AreEqual("Interval[5,10)2.5 Interval[10,15)4.75", reversed);
+        Assert.AreEqual(reversed, Show(Operators.Collect(input.Aggregate(w => w.PercentileContinuous(0.75, e => e.Value)))));
+        Assert.ThrowsExactly<ArgumentException>(() => input.Aggregate(w => w.PercentileContinuous(1.5, e => e.Value)));
+        Assert.ThrowsExactly<ArgumentException>(() => input.Aggregate(w => w.PercentileDiscrete(-0.1, e => e.Value)));
+    }
+
+    // percentile-continuous.md, known issue: PercentileDiscrete(0.0) gives 0, not the smallest value, while
+    // PercentileContinuous(0.0) and Min give the smallest value. This pins the engine defect as it is today: when it
+    // is fixed, this test fails, and percentile-continuous.md's known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    public void PercentileKnownIssueDiscreteAtZero()
+    {
+        var input = Ticks().TumblingWindowLifetime(5);
+        Assert.AreEqual("Interval[5,10)0 1 1 Interval[10,15)0 4 4",
+            Show(Operators.Collect(input.Aggregate(
+                w => w.PercentileDiscrete(0.0, e => e.Value), w => w.PercentileContinuous(0.0, e => e.Value), w => w.Min(e => e.Value),
+                (d, c, m) => new Out(null, d + " " + c + " " + m)))));
+    }
+
+    // session-timeout-window.md: an event's own end is ignored: the long a:1 is cut, the short b:2 extended.
+    [TestMethod]
+    public void SessionIgnoresTheEventsOwnEnd() =>
+        Assert.AreEqual("Interval[1,5)a:1 Interval[2,5)b:2",
+            Show(Operators.Collect(In(I(1, 10, "a", 1), I(2, 3, "b", 2)).SessionTimeoutWindow(3))));
+
+    // session-timeout-window.md: inside GroupApply, each key has its own sessions.
+    [TestMethod]
+    public void SessionPerKeyInsideGroupApply() =>
+        Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:2 End[1,4)a:1 Start[4,inf)a:3 End[2,5)b:2 End[4,7)a:3 Start[7,inf)b:4 Start[9,inf)a:5 End[7,10)b:4 End[9,12)a:5",
+            Show(Operators.Collect(Ticks().GroupApply(e => e.Key, g => g.SessionTimeoutWindow(3), (g, e) => e))));
+
+    // session-timeout-window.md: the first session's cut point is the first multiple of maxDuration at least
+    // maxDuration after its first event; a session that continues a cut one takes the first multiple of
+    // maxDuration after its second event; a session with one event ends at its timeout.
+    [TestMethod]
+    public void SessionMaxDurationCutsAtAMultiple()
+    {
+        var continued = In(new long[] { 1, 2, 3, 4, 5, 6, 7, 9, 10, 11 }.Select(t => Tick(t, "a", (int)t)).ToArray());
+        Assert.AreEqual("Interval[1,8)a:1 Interval[2,8)a:2 Interval[3,8)a:3 Interval[4,8)a:4 Interval[5,8)a:5 Interval[6,8)a:6 Interval[7,8)a:7 Interval[9,12)a:9 Interval[10,12)a:10 Interval[11,12)a:11",
+            Show(Operators.Collect(continued.SessionTimeoutWindow(3, 4))));
+        var fromOne = In(Enumerable.Range(1, 9).Select(t => Tick(t, "a", t)).ToArray());
+        Assert.AreEqual("Interval[1,8)a:1 Interval[2,8)a:2 Interval[3,8)a:3 Interval[4,8)a:4 Interval[5,8)a:5 Interval[6,8)a:6 Interval[7,8)a:7 Interval[8,12)a:8 Interval[9,12)a:9",
+            Show(Operators.Collect(fromOne.SessionTimeoutWindow(3, 4))));
+        var fromZero = In(Enumerable.Range(0, 9).Select(t => Tick(t, "a", t)).ToArray());
+        Assert.AreEqual("Interval[0,4)a:0 Interval[1,4)a:1 Interval[2,4)a:2 Interval[3,4)a:3 Interval[4,8)a:4 Interval[5,8)a:5 Interval[6,8)a:6 Interval[7,8)a:7 Interval[8,11)a:8",
+            Show(Operators.Collect(fromZero.SessionTimeoutWindow(3, 4))));
+    }
+
+    // session-timeout-window.md, known issue: a session that begins after a timeout takes its cut point from
+    // its second event, so the session that starts at 7 with its second event at 9 is cut at 16 and lasts 9
+    // ticks, though its timeout would end it at 18; with its second event at 8 it is cut at 12. This pins the engine defect as it is today: when it
+    // is fixed, this test fails, and session-timeout-window.md's known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    public void SessionKnownIssueCutPointFromTheSecondEvent()
+    {
+        var secondAtNine = In(new long[] { 1, 2, 4, 7, 9, 10, 11, 12, 13, 14, 15 }.Select(t => Tick(t, "a", (int)t)).ToArray());
+        Assert.AreEqual("Interval[1,7)a:1 Interval[2,7)a:2 Interval[4,7)a:4 Interval[7,16)a:7 Interval[9,16)a:9 Interval[10,16)a:10 Interval[11,16)a:11 Interval[12,16)a:12 Interval[13,16)a:13 Interval[14,16)a:14 Interval[15,16)a:15",
+            Show(Operators.Collect(secondAtNine.SessionTimeoutWindow(3, 4))));
+        var secondAtEight = In(new long[] { 1, 2, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15 }.Select(t => Tick(t, "a", (int)t)).ToArray());
+        Assert.AreEqual("Interval[1,7)a:1 Interval[2,7)a:2 Interval[4,7)a:4 Interval[7,12)a:7 Interval[8,12)a:8 Interval[9,12)a:9 Interval[10,12)a:10 Interval[11,12)a:11 Interval[12,16)a:12 Interval[13,16)a:13 Interval[14,16)a:14 Interval[15,16)a:15",
+            Show(Operators.Collect(secondAtEight.SessionTimeoutWindow(3, 4))));
+    }
+
+    /// <summary>One-tick events at 1, 2, 4, 7 and 9 to 15, with a punctuation at 7 just before the event at 7 if asked.</summary>
+    static IStreamable<Empty, Ev> SessionInput(bool punctuationAtSeven)
+    {
+        var events = new List<StreamEvent<Ev>>();
+        foreach (var t in new long[] { 1, 2, 4, 7, 9, 10, 11, 12, 13, 14, 15 })
+        {
+            if (t == 7 && punctuationAtSeven) events.Add(StreamEvent.CreatePunctuation<Ev>(7));
+            events.Add(StreamEvent.CreateInterval(t, t + 1, new Ev { Key = "a", Value = (int)t }));
+        }
+        return events.ToObservable().ToStreamable();
+    }
+
+    /// <summary>Each event's start and end as "start-end", from intervals and end edges.</summary>
+    static string Lifetimes(List<EventDto> events) =>
+        string.Join(" ", events.Where(e => e.Kind != "Start").Select(e => e.Start + "-" + e.End));
+
+    // session-timeout-window.md, known issue: with a punctuation at 7 before the event at 7, the session that starts
+    // at 7 takes its cut point from 7 and ends at 12, inside GroupApply and in columnar mode; in row mode on a
+    // stream with no grouping key it still ends at 16. This pins the engine behaviour as it is today: when it
+    // changes, this test fails, and session-timeout-window.md (and this test) must be updated.
+    [TestMethod]
+    [DoNotParallelize]
+    public void SessionKnownIssueCutPointAfterAPunctuation()
+    {
+        const string fromFirst = "1-7 2-7 4-7 7-12 9-12 10-12 11-12 12-16 13-16 14-16 15-16";
+        try
+        {
+            Config.ForceRowBasedExecution = true;
+            Assert.AreEqual(fromFirst, Lifetimes(Operators.Collect(
+                SessionInput(punctuationAtSeven: true).GroupApply(e => 0, g => g.SessionTimeoutWindow(3, 4), (g, e) => e))));
+            Assert.AreEqual("1-7 2-7 4-7 7-16 9-16 10-16 11-16 12-16 13-16 14-16 15-16",
+                Lifetimes(Operators.Collect(SessionInput(punctuationAtSeven: true).SessionTimeoutWindow(3, 4))));
+
+            Config.ForceRowBasedExecution = false;
+            Assert.AreEqual(fromFirst, Lifetimes(Operators.Collect(SessionInput(punctuationAtSeven: true).SessionTimeoutWindow(3, 4))));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
+    // session-timeout-window.md, known issue: a timeout of 0 is not refused. In row mode with no grouping key
+    // the output is empty; inside GroupApply, and in columnar mode, every event comes out and ends as it
+    // starts. This pins the engine defect as it is
+    // today: when it is fixed, this test fails, and session-timeout-window.md's known-issue paragraph (and
+    // this test) must be updated.
+    [TestMethod]
+    [DoNotParallelize]
+    public void SessionKnownIssueZeroTimeout()
+    {
+        // Row mode with no grouping key, as the diagrams run: no output at all.
+        Assert.AreEqual("", Show(Operators.Collect(Ticks().SessionTimeoutWindow(0))));
+
+        // Row mode inside GroupApply: every event comes out, and each one ends as it starts.
+        var grouped = Operators.Collect(Ticks().GroupApply(e => e.Key, g => g.SessionTimeoutWindow(0), (g, e) => e));
+        var groupedEnds = grouped.Where(e => e.Kind == "End").ToList();
+        Assert.AreEqual(5, groupedEnds.Count, string.Join(" ", grouped));
+        Assert.IsTrue(groupedEnds.All(e => e.End == e.Start), string.Join(" ", grouped));
+
+        // Columnar mode: every event comes out, and each one ends as it starts.
+        var input = Operators.All.Single(e => e.Id == "average").DefaultInputs[0];
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            var columnar = Operators.Collect(Operators.Ingress(input).SessionTimeoutWindow(0));
+            var ends = columnar.Where(e => e.Kind == "End").ToList();
+            Assert.AreEqual(5, ends.Count, string.Join(" ", columnar));
+            Assert.IsTrue(ends.All(e => e.End == e.Start), string.Join(" ", columnar));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
+    // point-at-end.md: an event that never ends gives nothing; one sent as a start edge and an end edge gives
+    // its point when the end edge arrives.
+    [TestMethod]
+    public void PointAtEndNeedsAnEnd()
+    {
+        Assert.AreEqual("", Show(Operators.Collect(Ticks().AlterEventDuration(StreamEvent.InfinitySyncTime).PointAtEnd())));
+        Config.ForceRowBasedExecution = true;
+        var edges = new[]
+        {
+            StreamEvent.CreateStart(1, new Ev { Key = "a", Value = 1 }),
+            StreamEvent.CreateEnd(5, 1, new Ev { Key = "a", Value = 1 }),
+        }.ToObservable().ToStreamable();
+        Assert.AreEqual("Interval[5,6)a:1", Show(Operators.Collect(edges.PointAtEnd())));
+    }
+
+    // point-at-end.md: after a tumbling window and an aggregate, one point per window, at the window's end.
+    [TestMethod]
+    public void PointAtEndAfterAWindowedAggregate() =>
+        Assert.AreEqual("Interval[8,9)3 Interval[12,13)1 Interval[16,17)1",
+            Show(Operators.Collect(Ticks().TumblingWindowLifetime(4).Count().PointAtEnd())));
+
+    static IStreamable<Empty, Out> Pairs(IStreamable<Empty, Ev> s) =>
+        s.ConsecutivePairs((first, second) => new Out(second.Key, first.Value + "," + second.Value));
+
+    // consecutive-pairs.md: only start times count; the events' ends are ignored.
+    [TestMethod]
+    public void ConsecutivePairsUseStartTimesOnly() =>
+        Assert.AreEqual("Start[3,inf)b:1,2 End[3,4)b:1,2 Start[6,inf)a:2,3 End[6,7)a:2,3",
+            Show(Operators.Collect(Pairs(In(I(1, 5, "a", 1), I(3, 9, "b", 2), I(6, 8, "a", 3))))));
+
+    // consecutive-pairs.md: events that start together are not paired with each other; each of them is paired
+    // with each event of the previous start time.
+    [TestMethod]
+    public void ConsecutivePairsAtTheSameStartTime() =>
+        Assert.AreEqual("Start[3,inf)a:2,3 Start[3,inf)a:1,3 Start[3,inf)b:2,4 Start[3,inf)b:1,4 End[3,4)a:2,3 End[3,4)a:1,3 End[3,4)b:2,4 End[3,4)b:1,4 Start[5,inf)a:4,5 Start[5,inf)a:3,5 End[5,6)a:4,5 End[5,6)a:3,5",
+            Show(Operators.Collect(Pairs(In(Tick(1, "a", 1), Tick(1, "b", 2), Tick(3, "a", 3), Tick(3, "b", 4), Tick(5, "a", 5))))));
+
+    // consecutive-pairs.md: inside GroupApply, pairs are formed within each key.
+    [TestMethod]
+    public void ConsecutivePairsPerKeyInsideGroupApply() =>
+        Assert.AreEqual("Start[4,inf)a:1,3 End[4,5)a:1,3 Start[7,inf)b:2,4 End[7,8)b:2,4 Start[9,inf)a:3,5 End[9,10)a:3,5",
+            Show(Operators.Collect(Ticks().GroupApply(e => e.Key,
+                g => g.ConsecutivePairs((first, second) => new Out(second.Key, first.Value + "," + second.Value)),
+                (g, r) => r))));
+
+    // consecutive-pairs.md, known issue: in columnar mode, on a payload type whose equality columnar code cannot
+    // use, such as Ev, ConsecutivePairs throws InvalidOperationException when the query is built; int and string
+    // payloads work, and so does Ev given a field-wise equality with SetProperty().PayloadEqualityComparer.
+    // This pins the engine defect as it is today: when it is fixed, this test fails, and consecutive-pairs.md's
+    // known-issue paragraph (and this test) must be updated.
+    [TestMethod]
+    [DoNotParallelize]
+    public void ConsecutivePairsKnownIssueColumnarPayloadEquality()
+    {
+        var input = Operators.All.Single(e => e.Id == "consecutive-pairs").DefaultInputs[0];
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => Pairs(Operators.Ingress(input)));
+            StringAssert.Contains(thrown.Message, "does not have a valid equality operator for columnar mode");
+            Assert.AreEqual("Start[2,inf)12 End[2,3)12 Start[4,inf)23 End[4,5)23 Start[7,inf)34 End[7,8)34 Start[9,inf)45 End[9,10)45",
+                Show(Operators.Collect(Operators.Ingress(input).Select(e => e.Value).ConsecutivePairs((x, y) => x * 10 + y))));
+            Assert.AreEqual("Start[2,inf)a1-b2: End[2,3)a1-b2: Start[4,inf)b2-a3: End[4,5)b2-a3: Start[7,inf)a3-b4: End[7,8)a3-b4: Start[9,inf)b4-a5: End[9,10)b4-a5:",
+                Show(Operators.Collect(Operators.Ingress(input).Select(e => e.Key + e.Value).ConsecutivePairs((x, y) => x + "-" + y))));
+            var withEquality = Operators.Ingress(input).SetProperty()
+                .PayloadEqualityComparer(new EqualityComparerExpression<Ev>((x, y) => x.Key == y.Key && x.Value == y.Value, x => x.Value));
+            Assert.AreEqual("Start[2,inf)b:1,2 End[2,3)b:1,2 Start[4,inf)a:2,3 End[4,5)a:2,3 Start[7,inf)b:3,4 End[7,8)b:3,4 Start[9,inf)a:4,5 End[9,10)a:4,5",
+                Show(Operators.Collect(Pairs(withEquality))));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = true;
+        }
+    }
 }

@@ -1117,6 +1117,148 @@
     ]
   },
   {
+    "id": "session-timeout-window",
+    "title": "SessionTimeoutWindow",
+    "category": "Lifetimes and windows",
+    "code": "input.SessionTimeoutWindow(3)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 7,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 7,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 7,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 7,
+        "end": 12,
+        "key": "b",
+        "label": "4"
+      },
+      {
+        "kind": "Interval",
+        "start": 9,
+        "end": 12,
+        "key": "a",
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "point-at-end",
+    "title": "PointAtEnd",
+    "category": "Lifetimes and windows",
+    "code": "input.PointAtEnd()",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 6,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 8,
+        "end": 9,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 9,
+        "end": 10,
+        "key": "b",
+        "label": "2"
+      }
+    ]
+  },
+  {
     "id": "union",
     "title": "Union",
     "category": "Combining streams",
@@ -1865,6 +2007,580 @@
     ]
   },
   {
+    "id": "group-aggregate",
+    "title": "GroupAggregate",
+    "category": "Aggregates",
+    "code": "input.TumblingWindowLifetime(5).GroupAggregate(e =\u003E e.Key,\n    w =\u003E w.Count(),\n    w =\u003E w.Sum(e =\u003E e.Value),\n    (g, count, sum) =\u003E new Out(g.Key, \u0022count \u0022 \u002B count \u002B \u0022, sum \u0022 \u002B sum))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": "b",
+        "label": "count 1, sum 2"
+      },
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": "a",
+        "label": "count 2, sum 4"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": "b",
+        "label": "count 1, sum 4"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": "a",
+        "label": "count 1, sum 5"
+      }
+    ]
+  },
+  {
+    "id": "aggregate",
+    "title": "Aggregate (several aggregates)",
+    "category": "Aggregates",
+    "code": "input.TumblingWindowLifetime(5).Aggregate(\n    w =\u003E w.Min(e =\u003E e.Value),\n    w =\u003E w.Max(e =\u003E e.Value),\n    w =\u003E w.Count(),\n    (min, max, count) =\u003E new Out(null, \u0022min \u0022 \u002B min \u002B \u0022, max \u0022 \u002B max \u002B \u0022, count \u0022 \u002B count))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": null,
+        "label": "min 1, max 3, count 3"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": null,
+        "label": "min 4, max 5, count 2"
+      }
+    ]
+  },
+  {
+    "id": "average",
+    "title": "Average (tumbling window)",
+    "category": "Aggregates",
+    "code": "input.TumblingWindowLifetime(5).Average(e =\u003E e.Value)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": null,
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": null,
+        "label": "4.5"
+      }
+    ]
+  },
+  {
+    "id": "min",
+    "title": "Min (hopping window)",
+    "category": "Aggregates",
+    "code": "input.HoppingWindowLifetime(4, 2).Min(e =\u003E e.Value)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 2,
+        "end": null,
+        "key": null,
+        "label": "1"
+      },
+      {
+        "kind": "End",
+        "start": 2,
+        "end": 4,
+        "key": null,
+        "label": "1"
+      },
+      {
+        "kind": "Start",
+        "start": 4,
+        "end": null,
+        "key": null,
+        "label": "1"
+      },
+      {
+        "kind": "End",
+        "start": 4,
+        "end": 6,
+        "key": null,
+        "label": "1"
+      },
+      {
+        "kind": "Start",
+        "start": 6,
+        "end": null,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "End",
+        "start": 6,
+        "end": 8,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "Start",
+        "start": 8,
+        "end": null,
+        "key": null,
+        "label": "4"
+      },
+      {
+        "kind": "End",
+        "start": 8,
+        "end": 10,
+        "key": null,
+        "label": "4"
+      },
+      {
+        "kind": "Start",
+        "start": 10,
+        "end": null,
+        "key": null,
+        "label": "4"
+      },
+      {
+        "kind": "End",
+        "start": 10,
+        "end": 12,
+        "key": null,
+        "label": "4"
+      },
+      {
+        "kind": "Start",
+        "start": 12,
+        "end": null,
+        "key": null,
+        "label": "5"
+      },
+      {
+        "kind": "End",
+        "start": 12,
+        "end": 14,
+        "key": null,
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "max",
+    "title": "Max",
+    "category": "Aggregates",
+    "code": "input.Max(e =\u003E e.Value)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 6,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 8,
+          "key": "a",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": null,
+        "label": "1"
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 3,
+        "key": null,
+        "label": "1"
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": null,
+        "label": "2"
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 4,
+        "key": null,
+        "label": "2"
+      },
+      {
+        "kind": "Start",
+        "start": 4,
+        "end": null,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "End",
+        "start": 4,
+        "end": 6,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "Start",
+        "start": 6,
+        "end": null,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "End",
+        "start": 6,
+        "end": 7,
+        "key": null,
+        "label": "3"
+      },
+      {
+        "kind": "Start",
+        "start": 7,
+        "end": null,
+        "key": null,
+        "label": "2"
+      },
+      {
+        "kind": "End",
+        "start": 7,
+        "end": 8,
+        "key": null,
+        "label": "2"
+      }
+    ]
+  },
+  {
+    "id": "top-k",
+    "title": "TopK (tumbling window)",
+    "category": "Aggregates",
+    "code": "input.TumblingWindowLifetime(5).TopK(e =\u003E e.Value, 2)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": null,
+        "label": "1. a:3, 2. b:2"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": null,
+        "label": "1. a:5, 2. b:4"
+      }
+    ]
+  },
+  {
+    "id": "percentile-continuous",
+    "title": "PercentileContinuous (tumbling window)",
+    "category": "Aggregates",
+    "code": "input.TumblingWindowLifetime(5).Aggregate(\n    w =\u003E w.PercentileContinuous(0.5, e =\u003E e.Value),\n    w =\u003E w.PercentileDiscrete(0.5, e =\u003E e.Value),\n    (cont, disc) =\u003E new Out(null, \u0022cont \u0022 \u002B cont \u002B \u0022, disc \u0022 \u002B disc))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 10,
+        "key": null,
+        "label": "cont 2, disc 2"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 15,
+        "key": null,
+        "label": "cont 4.5, disc 4"
+      }
+    ]
+  },
+  {
     "id": "detect",
     "title": "Detect",
     "category": "Patterns",
@@ -1925,6 +2641,112 @@
         "end": 8,
         "key": null,
         "label": "match"
+      }
+    ]
+  },
+  {
+    "id": "consecutive-pairs",
+    "title": "ConsecutivePairs",
+    "category": "Patterns",
+    "code": "input.ConsecutivePairs((first, second) =\u003E new Out(second.Key, first.Value \u002B \u0022,\u0022 \u002B second.Value))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 2,
+        "end": null,
+        "key": "b",
+        "label": "1,2"
+      },
+      {
+        "kind": "End",
+        "start": 2,
+        "end": 3,
+        "key": "b",
+        "label": "1,2"
+      },
+      {
+        "kind": "Start",
+        "start": 4,
+        "end": null,
+        "key": "a",
+        "label": "2,3"
+      },
+      {
+        "kind": "End",
+        "start": 4,
+        "end": 5,
+        "key": "a",
+        "label": "2,3"
+      },
+      {
+        "kind": "Start",
+        "start": 7,
+        "end": null,
+        "key": "b",
+        "label": "3,4"
+      },
+      {
+        "kind": "End",
+        "start": 7,
+        "end": 8,
+        "key": "b",
+        "label": "3,4"
+      },
+      {
+        "kind": "Start",
+        "start": 9,
+        "end": null,
+        "key": "a",
+        "label": "4,5"
+      },
+      {
+        "kind": "End",
+        "start": 9,
+        "end": 10,
+        "key": "a",
+        "label": "4,5"
       }
     ]
   }

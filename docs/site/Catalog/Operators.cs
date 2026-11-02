@@ -64,6 +64,10 @@ public static class Operators
             input => input.TumblingWindowLifetime(4)),
         Unary("hopping-window", "HoppingWindowLifetime", 1, Ticks,
             input => input.HoppingWindowLifetime(4, 2)),
+        Unary("session-timeout-window", "SessionTimeoutWindow", 1, Ticks,
+            input => input.SessionTimeoutWindow(3)),
+        Unary("point-at-end", "PointAtEnd", 1, Left,
+            input => input.PointAtEnd()),
 
         Binary("union", "Union", 2, Left, Right,
             (left, right) => left.Union(right)),
@@ -88,12 +92,38 @@ public static class Operators
             input => input.TumblingWindowLifetime(5).GroupApply(e => e.Key,
                 g => g.Average(e => e.Value),
                 (g, avg) => new Out(g.Key, "avg " + avg))),
+        Unary("group-aggregate", "GroupAggregate", 4, Ticks,
+            input => input.TumblingWindowLifetime(5).GroupAggregate(e => e.Key,
+                w => w.Count(),
+                w => w.Sum(e => e.Value),
+                (g, count, sum) => new Out(g.Key, "count " + count + ", sum " + sum))),
+        Unary("aggregate", "Aggregate (several aggregates)", 4, Ticks,
+            input => input.TumblingWindowLifetime(5).Aggregate(
+                w => w.Min(e => e.Value),
+                w => w.Max(e => e.Value),
+                w => w.Count(),
+                (min, max, count) => new Out(null, "min " + min + ", max " + max + ", count " + count))),
+        Unary("average", "Average (tumbling window)", 4, Ticks,
+            input => input.TumblingWindowLifetime(5).Average(e => e.Value)),
+        Unary("min", "Min (hopping window)", 4, Ticks,
+            input => input.HoppingWindowLifetime(4, 2).Min(e => e.Value)),
+        Unary("max", "Max", 4, Overlapping,
+            input => input.Max(e => e.Value)),
+        Unary("top-k", "TopK (tumbling window)", 4, Ticks,
+            input => input.TumblingWindowLifetime(5).TopK(e => e.Value, 2)),
+        Unary("percentile-continuous", "PercentileContinuous (tumbling window)", 4, Ticks,
+            input => input.TumblingWindowLifetime(5).Aggregate(
+                w => w.PercentileContinuous(0.5, e => e.Value),
+                w => w.PercentileDiscrete(0.5, e => e.Value),
+                (cont, disc) => new Out(null, "cont " + cont + ", disc " + disc))),
 
         Unary("detect", "Detect", 5, Ticks,
             input => input.Detect(p => p
                     .SingleElement(e => e.Key == "a")
                     .SingleElement(e => e.Key == "b"),
                 maxDuration: 4)),
+        Unary("consecutive-pairs", "ConsecutivePairs", 5, Ticks,
+            input => input.ConsecutivePairs((first, second) => new Out(second.Key, first.Value + "," + second.Value))),
     ];
 
     /// <summary>Runs <paramref name="entry"/> over <paramref name="inputs"/> in row mode.</summary>
@@ -155,6 +185,8 @@ public static class Operators
         Out o => (o.Key, o.Label),
         Totals t => (t.Key, $"odd {t.Odd}, even {t.Even}"),
         Triple t => (t.Key, $"{t.Attribute} {t.Value}"),
+        // TopK's result: the ranked events, best first, as "rank. key:value".
+        List<RankedEvent<Ev>> ranked => (null, string.Join(", ", ranked.Select(r => $"{r.Rank}. {r.Payload.Key}:{r.Payload.Value}"))),
         Empty => (null, "match"),
         // A string payload is a key on its own, such as Distinct's output: coloured by itself, no label.
         string s => (s, ""),

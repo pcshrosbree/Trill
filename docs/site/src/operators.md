@@ -26,6 +26,8 @@ Each operator has a page with an interactive diagram computed by Trill. It cover
 | [ClipEventDuration](operators/clip-event-duration.md) | Ends each left event when a right event with the same key starts. |
 | [TumblingWindowLifetime](operators/tumbling-window.md) | Moves each event into a fixed, non-overlapping window, ready for an aggregate. |
 | [HoppingWindowLifetime](operators/hopping-window.md) | Moves each event into overlapping windows of a fixed size that start every period. |
+| [SessionTimeoutWindow](operators/session-timeout-window.md) | Groups events into sessions that end after a quiet period, and makes every event of a session last until the session ends. |
+| [PointAtEnd](operators/point-at-end.md) | Replaces each event with a one-tick event at its end. |
 
 ## Combining streams
 
@@ -49,9 +51,17 @@ Each operator has a page with an interactive diagram computed by Trill. It cover
 | [Count (tumbling window)](operators/count.md) | Counts the events alive at each moment; after a tumbling window, that is a count per window. |
 | [Sum (hopping window)](operators/sum.md) | Sums a value over the events alive at each moment; after a hopping window, that is a sum per hop. |
 | [GroupApply](operators/group-apply.md) | Splits a stream by key, runs the same query on each group, and merges the results. |
+| [GroupAggregate](operators/group-aggregate.md) | Splits a stream by key and computes one or more aggregates per group, in one call. |
+| [Aggregate (several aggregates)](operators/aggregate.md) | Computes several aggregates over the events alive at each moment and combines their results into one payload. |
+| [Average (tumbling window)](operators/average.md) | Averages a value over the events alive at each moment; after a tumbling window, that is an average per window. |
+| [Min (hopping window)](operators/min.md) | Finds the smallest value among the events alive at each moment; after a hopping window, that is the minimum per hop. |
+| [Max](operators/max.md) | Finds the largest value among the events alive at each moment. |
+| [TopK (tumbling window)](operators/top-k.md) | Lists the k events with the largest values among the events alive at each moment, with their ranks. |
+| [PercentileContinuous (tumbling window)](operators/percentile-continuous.md) | Computes a percentile of a value over the events alive at each moment, interpolating between values. |
 
 ## Patterns
 
 | Operator | What it does |
 |---|---|
 | [Detect](operators/detect.md) | Finds sequences of events that match a pattern within a maximum duration. |
+| [ConsecutivePairs](operators/consecutive-pairs.md) | Pairs each event with the event before it. |
