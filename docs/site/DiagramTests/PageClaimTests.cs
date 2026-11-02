@@ -514,15 +514,14 @@ public sealed class PageClaimTests
             Show(Operators.Collect(input.GroupApply(e => e.Key, g => g.Count(), (k, c) => new Out(k.Key, "count " + c)))));
     }
 
-    // reduce.md, known issue: after a Map with a key selector, Reduce() with no arguments builds, then
-    // throws a NullReferenceException when subscribed. This pins the engine defect as it is today:
-    // when it is fixed, this test fails, and reduce.md's known-issue paragraph (and this test) must be updated.
+    // reduce.md: "Reduce() with no arguments passes the mapper's output through and merges it back into one
+    // stream", and "after a Map with a key selector it does the same".
     [TestMethod]
-    public void ReduceKnownIssueEmptyReduceAfterAKeyedMap()
+    public void ReduceWithNoArgumentsPassesAKeyedMapThrough()
     {
         Config.ForceRowBasedExecution = true;
-        var query = Operators.Ingress([I(1, 5, "a", 1)]).Map(s => s, e => e.Key).Reduce();
-        Assert.ThrowsExactly<NullReferenceException>(() => Operators.Collect(query));
+        var input = Operators.Ingress([I(1, 5, "a", 1), I(3, 8, "b", 2)]);
+        Assert.AreEqual("Interval[1,5)a:1 Interval[3,8)b:2", Show(Operators.Collect(input.Map(s => s, e => e.Key).Reduce())));
     }
 
     // where-not-exists.md: a Join that projects the left payload emits one copy per overlapping right match.
