@@ -46,8 +46,13 @@ namespace Microsoft.StreamProcessing
         {
             var typeOfTKey = typeof(TKey);
             var typeOfTInput = typeof(TInput);
+            var typeOfTResult = typeof(TResult);
 
             if (!typeOfTInput.CanRepresentAsColumnar()) return RefuseType(typeOfTInput);
+
+            // The generated pipe writes its results into columns, so a result that cannot be held in columns, such
+            // as a string, needs the row pipe, which writes into a batch with a payload array.
+            if (!typeOfTResult.CanRepresentAsColumnar()) return RefuseType(typeOfTResult);
             if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
 
             var generatedPipeType = GeneratedPipeType();
