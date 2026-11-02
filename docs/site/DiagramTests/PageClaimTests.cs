@@ -608,22 +608,22 @@ public sealed class PageClaimTests
         }
     }
 
-    // group-aggregate.md, known issue: in columnar mode, on a stream whose events never end, the GroupApply form
-    // gives each later result of a group the start time of the group's first result (1, 2 and 1 where
-    // GroupAggregate gives 4, 7 and 9), so the two forms differ. This pins the engine defect as it is today:
-    // when it is fixed, this test fails, and group-aggregate.md's known-issue paragraph (and this test) must be updated.
+    // group-aggregate.md: "The output is the same as GroupApply with Aggregate on each group", also in columnar
+    // mode on a stream whose events never end, where later results of a group start when they change (4, 7 and 9).
+    // (The GroupApply form used to repeat the group's first start time there; that known issue is fixed.)
     [TestMethod]
     [DoNotParallelize]
-    public void GroupAggregateKnownIssueColumnarGroupApplyStartTimes()
+    public void GroupAggregateAndGroupApplyAgreeOnStartTimesInColumnarMode()
     {
+        const string expected = "Start[1,inf)a:1 Start[2,inf)b:1 End[1,4)a:1 Start[4,inf)a:2 End[2,7)b:1 Start[7,inf)b:2 End[4,9)a:2 Start[9,inf)a:3";
         var input = Operators.All.Single(e => e.Id == "average").DefaultInputs[0];
         try
         {
             Config.ForceRowBasedExecution = false;
             var columnar = Operators.Ingress(input).AlterEventDuration(StreamEvent.InfinitySyncTime);
-            Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:1 End[1,4)a:1 Start[4,inf)a:2 End[2,7)b:1 Start[7,inf)b:2 End[4,9)a:2 Start[9,inf)a:3",
+            Assert.AreEqual(expected,
                 Show(Operators.Collect(columnar.GroupAggregate(e => e.Key, w => w.Count(), (g, n) => new Ev { Key = g.Key, Value = (int)n }))));
-            Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:1 End[1,4)a:1 Start[1,inf)a:2 End[2,7)b:1 Start[2,inf)b:2 End[1,9)a:2 Start[1,inf)a:3",
+            Assert.AreEqual(expected,
                 Show(Operators.Collect(columnar.GroupApply(e => e.Key, g => g.Aggregate(w => w.Count()), (g, n) => new Ev { Key = g.Key, Value = (int)n }))));
         }
         finally
