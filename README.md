@@ -7,7 +7,7 @@ The fork starts from Microsoft's `master` at commit `b3d6b9bb48`. Each change is
 Done so far:
 
 - The library and its tests target .NET 10 (`net10.0`) only.
-- Engine fixes for lost batches in `BinaryPipe`, a `CountAggregate.Sum` that subtracted, and wrong decisions about columnar mode for some payload types and operators.
+- Engine fixes for lost batches in `BinaryPipe`, a `CountAggregate.Sum` that subtracted, wrong `Pivot` results when an interval event ended while its group lived on, `Unpivot` mishandling `int` and `int?` members, `Reduce()` with no arguments throwing after a keyed `Map`, and wrong decisions about columnar mode for some payload types and operators.
 - Fixes to code generation. Generated code can reach non-public members of user assemblies. The code generator writes bool, char, string, numeric and enum constants so that they keep their type and value, whatever the current culture.
 - Captured variables. Most operators now read a local variable captured by a lambda once, when the query is built. This applies only if the variable holds a bool, char, string, number or enum and the lambda does not assign to it. Inside the reduce function of a map-reduce operation, the value is read at each subscription instead. Reading captured variables this way removes one reason for an operator to fall back to row mode. [Pull request #22](https://github.com/pcshrosbree/Trill/pull/22) has the details.
 - Diagnostics. When fallback to row mode is disabled, the exception for a code-generation failure now names the operator and gives the compiler's errors. An application can set `Config.RowModeReporter` to be told about each operator that falls back to row mode.
