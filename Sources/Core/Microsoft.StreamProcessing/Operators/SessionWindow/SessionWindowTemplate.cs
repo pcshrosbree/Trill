@@ -203,6 +203,29 @@ using Microsoft.StreamProcessing.Internal.Collections;
         }
     }
 
+    // Inserts the key's node into orderedKeys after every key whose session ends at or before the given
+    // threshold. ReachTime closes keys from the front of the list and stops at the first one not yet due, so
+    // the list must stay in the order in which the sessions end, or end edges come out of time order.
+    private void InsertInOrder(LinkedListNode<");
+            this.Write(this.ToStringHelper.ToStringWithCulture(TKey));
+            this.Write(@"> node, long threshold)
+    {
+        var previous = orderedKeys.Last;
+        while (previous != null)
+        {
+            int pIndex;
+            lastDataTimeDictionary.Lookup(previous.Value, out pIndex);
+            var previousThreshold = lastDataTimeDictionary.entries[pIndex].value == long.MinValue
+                ? windowEndTimeDictionary.entries[pIndex].value
+                : Math.Min(lastDataTimeDictionary.entries[pIndex].value + sessionTimeout, windowEndTimeDictionary.entries[pIndex].value);
+            if (previousThreshold <= threshold) break;
+            previous = previous.Previous;
+        }
+
+        if (previous == null) orderedKeys.AddFirst(node);
+        else orderedKeys.AddAfter(previous, node);
+    }
+
     private int AllocatePartition(");
             this.Write(this.ToStringHelper.ToStringWithCulture(TKey));
             this.Write(@" pKey)
@@ -247,18 +270,18 @@ using Microsoft.StreamProcessing.Internal.Collections;
                             keyIndex = AllocatePartition(batch.key.col[i]);
                         SetCutPoint(keyIndex, vsync[i]);
 
-                        if (!stateDictionary.entries[keyIndex].value.Any()) orderedKeys.AddLast(new LinkedListNode<");
+                        var newThreshhold = Math.Min(vsync[i] + sessionTimeout, windowEndTimeDictionary.entries[keyIndex].value);
+                        if (!stateDictionary.entries[keyIndex].value.Any()) InsertInOrder(new LinkedListNode<");
             this.Write(this.ToStringHelper.ToStringWithCulture(TKey));
-            this.Write(@">(batch.key.col[i]));
+            this.Write(@">(batch.key.col[i]), newThreshhold);
                         else
                         {
                             var oldThreshhold = Math.Min(lastDataTimeDictionary.entries[keyIndex].value + sessionTimeout, windowEndTimeDictionary.entries[keyIndex].value);
-                            var newThreshhold = Math.Min(vsync[i] + sessionTimeout, windowEndTimeDictionary.entries[keyIndex].value);
                             if (newThreshhold > oldThreshhold)
                             {
                                 var node = orderedKeys.Find(batch.key.col[i]);
                                 orderedKeys.Remove(node);
-                                orderedKeys.AddLast(node);
+                                InsertInOrder(node, newThreshhold);
                             }
                         }
                         lastDataTimeDictionary.entries[keyIndex].value = vsync[i];

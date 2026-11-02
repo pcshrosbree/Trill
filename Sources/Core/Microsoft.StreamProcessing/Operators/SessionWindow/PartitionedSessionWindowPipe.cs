@@ -127,6 +127,26 @@ namespace Microsoft.StreamProcessing
             }
         }
 
+        // Inserts the key's node into its partition's list after every key whose session ends at or before the
+        // given threshold. ReachTime closes keys from the front of the list and stops at the first one not yet due,
+        // so the list must stay in the order in which the sessions end, or end edges come out of time order.
+        private void InsertInOrder(LinkedList<TKey> orderedKeys, LinkedListNode<TKey> node, long threshold)
+        {
+            var previous = orderedKeys.Last;
+            while (previous != null)
+            {
+                this.lastDataTimeDictionary.Lookup(previous.Value, out int pIndex);
+                var previousThreshold = this.lastDataTimeDictionary.entries[pIndex].value == long.MinValue
+                    ? this.windowEndTimeDictionary.entries[pIndex].value
+                    : Math.Min(this.lastDataTimeDictionary.entries[pIndex].value + this.sessionTimeout, this.windowEndTimeDictionary.entries[pIndex].value);
+                if (previousThreshold <= threshold) break;
+                previous = previous.Previous;
+            }
+
+            if (previous == null) orderedKeys.AddFirst(node);
+            else orderedKeys.AddAfter(previous, node);
+        }
+
         private int AllocatePartition(TKey key, TPartitionKey pKey)
         {
             if (!this.orderedKeysDictionary.ContainsKey(pKey)) this.orderedKeysDictionary.Add(pKey, new LinkedList<TKey>());
@@ -164,18 +184,18 @@ namespace Microsoft.StreamProcessing
                                 keyIndex = AllocatePartition(batch.key.col[i], partition);
                             SetCutPoint(keyIndex, vsync[i]);
 
+                            var newThreshhold = Math.Min(vsync[i] + this.sessionTimeout, this.windowEndTimeDictionary.entries[keyIndex].value);
                             if (!this.stateDictionary.entries[keyIndex].value.Any())
-                                this.orderedKeysDictionary[partition].AddLast(new LinkedListNode<TKey>(batch.key.col[i]));
+                                InsertInOrder(this.orderedKeysDictionary[partition], new LinkedListNode<TKey>(batch.key.col[i]), newThreshhold);
                             else
                             {
                                 var oldThreshhold = Math.Min(this.lastDataTimeDictionary.entries[keyIndex].value + this.sessionTimeout, this.windowEndTimeDictionary.entries[keyIndex].value);
-                                var newThreshhold = Math.Min(vsync[i] + this.sessionTimeout, this.windowEndTimeDictionary.entries[keyIndex].value);
                                 if (newThreshhold > oldThreshhold)
                                 {
                                     var orderedKeys = this.orderedKeysDictionary[partition];
                                     var node = orderedKeys.Find(batch.key.col[i]);
                                     orderedKeys.Remove(node);
-                                    orderedKeys.AddLast(node);
+                                    InsertInOrder(orderedKeys, node, newThreshhold);
                                 }
                             }
 
