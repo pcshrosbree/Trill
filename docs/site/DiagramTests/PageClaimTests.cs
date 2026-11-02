@@ -748,14 +748,12 @@ public sealed class PageClaimTests
         Assert.ThrowsExactly<ArgumentException>(() => input.Aggregate(w => w.PercentileDiscrete(-0.1, e => e.Value)));
     }
 
-    // percentile-continuous.md, known issue: PercentileDiscrete(0.0) gives 0, not the smallest value, while
-    // PercentileContinuous(0.0) and Min give the smallest value. This pins the engine defect as it is today: when it
-    // is fixed, this test fails, and percentile-continuous.md's known-issue paragraph (and this test) must be updated.
+    // percentile-continuous.md: at 0, PercentileDiscrete and PercentileContinuous both give the smallest value, as Min does.
     [TestMethod]
-    public void PercentileKnownIssueDiscreteAtZero()
+    public void PercentileAtZeroIsTheSmallestValue()
     {
         var input = Ticks().TumblingWindowLifetime(5);
-        Assert.AreEqual("Interval[5,10)0 1 1 Interval[10,15)0 4 4",
+        Assert.AreEqual("Interval[5,10)1 1 1 Interval[10,15)4 4 4",
             Show(Operators.Collect(input.Aggregate(
                 w => w.PercentileDiscrete(0.0, e => e.Value), w => w.PercentileContinuous(0.0, e => e.Value), w => w.Min(e => e.Value),
                 (d, c, m) => new Out(null, d + " " + c + " " + m)))));
