@@ -24,10 +24,17 @@ namespace Microsoft.StreamProcessing
 
             this.LeftComparer = left.Properties.PayloadEqualityComparer;
 
-            // This operator uses the equality method on payloads from the left side
-            if (left.Properties.IsColumnar && !this.LeftComparer.CanUsePayloadEquality())
+            // This operator uses the equality method on payloads from the left side, to match each left end edge
+            // to its start edge. Columnar code cannot use an equality that uses the payload objects themselves.
+            // Row mode on columnar input may not be able to either: each edge read from a columnar batch is a new
+            // object, which breaks an equality that depends on object identity. So such an equality is refused,
+            // as before, unless the left input has only start edges, which need no matching, and fallback to row
+            // mode is allowed.
+            if (left.Properties.IsColumnar
+                && (!left.Properties.IsStartEdgeOnly || Config.CodegenOptions.DontFallBackToRowBasedExecution)
+                && !this.LeftComparer.CanUsePayloadEquality())
             {
-                throw new InvalidOperationException($"Type of payload, '{typeof(TLeft).FullName}', to Clip does not have a valid equality operator for columnar mode.");
+                throw new InvalidOperationException(EqualityErrorMessage());
             }
 
             Initialize();
@@ -52,6 +59,14 @@ namespace Microsoft.StreamProcessing
 
         protected override bool CanGenerateColumnar()
         {
+            // The constructor has refused such an equality unless the left input has only start edges and fallback
+            // is allowed. Then the row pipe never compares payloads, so run in row mode.
+            if (!this.LeftComparer.CanUsePayloadEquality())
+            {
+                this.errorMessages = EqualityErrorMessage();
+                return RefuseUnsupported(this.errorMessages);
+            }
+
             var typeOfTKey = typeof(TKey);
             var typeOfTLeft = typeof(TLeft);
             var typeOfTRight = typeof(TRight);
@@ -66,6 +81,10 @@ namespace Microsoft.StreamProcessing
 
             return Generated(generatedPipeType);
         }
+
+        private static string EqualityErrorMessage()
+            => $"Type of payload, '{typeof(TLeft).FullName}', to Clip does not have a valid equality operator for columnar mode. "
+                + "Its equality and hash expressions may use the payload only to read its fields or properties; set such a comparer on the left input with SetProperty().PayloadEqualityComparer.";
 
         private BinaryPipe<TKey, TLeft, TRight, TLeft> GetPipe(IStreamObserver<TKey, TLeft> observer)
         {
