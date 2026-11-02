@@ -160,8 +160,17 @@ namespace Microsoft.StreamProcessing
             => Max(selector, new ComparerExpression<TValue>(comparer));
 
         /// <summary>
-        /// Computes a time-sensitive top-k aggregate using snapshot semantics based on a key selector.
+        /// Computes a time-sensitive top-k aggregate using snapshot semantics: the live events with the largest
+        /// ordering values, largest first, each with its rank.
         /// </summary>
+        /// <remarks>
+        /// Events with equal ordering values share a rank, and the next rank skips, as SQL's RANK does. Every event
+        /// tied for the last place is kept, so the list can have more than <paramref name="k"/> items.
+        /// </remarks>
+        /// <typeparam name="TOrderValue">The type of the ordering value.</typeparam>
+        /// <param name="orderer">Selects the value that orders the events. It orders them; it does not group them.</param>
+        /// <param name="k">The number of places in the list.</param>
+        /// <returns>The aggregate, whose result is the ranked list.</returns>
         public IAggregate<TSource, SortedMultiSet<TSource>, List<RankedEvent<TSource>>> TopK<TOrderValue>(Expression<Func<TSource, TOrderValue>> orderer, int k)
         {
             Invariant.IsNotNull(orderer, nameof(orderer));
@@ -172,8 +181,19 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
-        /// Computes a time-sensitive top-k aggregate using snapshot semantics based on a key selector with the provided ordering comparer.
+        /// Computes a time-sensitive top-k aggregate using snapshot semantics: the live events with the largest
+        /// ordering values according to <paramref name="comparer"/>, largest first, each with its rank.
         /// </summary>
+        /// <remarks>
+        /// Events with equal ordering values share a rank, and the next rank skips, as SQL's RANK does. Every event
+        /// tied for the last place is kept, so the list can have more than <paramref name="k"/> items. A comparison
+        /// that reverses the usual order, such as <c>(x, y) =&gt; y.CompareTo(x)</c>, lists the smallest values.
+        /// </remarks>
+        /// <typeparam name="TOrderValue">The type of the ordering value.</typeparam>
+        /// <param name="orderer">Selects the value that orders the events. It orders them; it does not group them.</param>
+        /// <param name="comparer">The comparison of ordering values.</param>
+        /// <param name="k">The number of places in the list.</param>
+        /// <returns>The aggregate, whose result is the ranked list.</returns>
         public IAggregate<TSource, SortedMultiSet<TSource>, List<RankedEvent<TSource>>> TopK<TOrderValue>(Expression<Func<TSource, TOrderValue>> orderer, IComparerExpression<TOrderValue> comparer, int k)
         {
             Invariant.IsNotNull(orderer, nameof(orderer));

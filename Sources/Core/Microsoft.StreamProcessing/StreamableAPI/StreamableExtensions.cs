@@ -833,8 +833,18 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
-        /// Computes a time-sensitive top-k aggregate using snapshot semantics based on a key selector.
+        /// Computes a time-sensitive top-k aggregate using snapshot semantics: the live events with the largest
+        /// payloads, largest first, each with its rank.
         /// </summary>
+        /// <remarks>
+        /// Events with equal payloads share a rank, and the next rank skips, as SQL's RANK does. Every event tied
+        /// for the last place is kept, so the list can have more than <paramref name="k"/> items.
+        /// </remarks>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream, which orders the events.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="k">The number of places in the list.</param>
+        /// <returns>A stream of ranked lists.</returns>
         public static IStreamable<TKey, List<RankedEvent<TPayload>>> TopK<TKey, TPayload>(
             this IStreamable<TKey, TPayload> source,
             int k)
@@ -845,8 +855,20 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
-        /// Computes a time-sensitive top-k aggregate using snapshot semantics based on a key selector.
+        /// Computes a time-sensitive top-k aggregate using snapshot semantics: the live events with the largest
+        /// ordering values, largest first, each with its rank.
         /// </summary>
+        /// <remarks>
+        /// Events with equal ordering values share a rank, and the next rank skips, as SQL's RANK does. Every event
+        /// tied for the last place is kept, so the list can have more than <paramref name="k"/> items.
+        /// </remarks>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream.</typeparam>
+        /// <typeparam name="T">The type of the ordering value.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="selector">Selects the value that orders the events. It orders them; it does not group them.</param>
+        /// <param name="k">The number of places in the list.</param>
+        /// <returns>A stream of ranked lists.</returns>
         public static IStreamable<TKey, List<RankedEvent<TPayload>>> TopK<TKey, TPayload, T>(
             this IStreamable<TKey, TPayload> source,
             Expression<Func<TPayload, T>> selector,
@@ -859,8 +881,20 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
-        /// Computes a time-sensitive top-k aggregate using snapshot semantics based on a key selector.
+        /// Computes a time-sensitive top-k aggregate using snapshot semantics: the live events with the largest
+        /// payloads according to <paramref name="comparer"/>, largest first, each with its rank.
         /// </summary>
+        /// <remarks>
+        /// Events with equal payloads share a rank, and the next rank skips, as SQL's RANK does. Every event tied
+        /// for the last place is kept, so the list can have more than <paramref name="k"/> items. A comparison
+        /// that reverses the usual order, such as <c>(x, y) =&gt; y.CompareTo(x)</c>, lists the smallest payloads.
+        /// </remarks>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream, which orders the events.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="comparer">The comparison of payloads.</param>
+        /// <param name="k">The number of places in the list.</param>
+        /// <returns>A stream of ranked lists.</returns>
         public static IStreamable<TKey, List<RankedEvent<TPayload>>> TopK<TKey, TPayload>(
             this IStreamable<TKey, TPayload> source,
             Expression<Comparison<TPayload>> comparer,
@@ -873,8 +907,22 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
-        /// Computes a time-sensitive top-k aggregate using snapshot semantics based on a key selector with the provided ordering comparer.
+        /// Computes a time-sensitive top-k aggregate using snapshot semantics: the live events with the largest
+        /// ordering values according to <paramref name="comparer"/>, largest first, each with its rank.
         /// </summary>
+        /// <remarks>
+        /// Events with equal ordering values share a rank, and the next rank skips, as SQL's RANK does. Every event
+        /// tied for the last place is kept, so the list can have more than <paramref name="k"/> items. A comparison
+        /// that reverses the usual order, such as <c>(x, y) =&gt; y.CompareTo(x)</c>, lists the smallest values.
+        /// </remarks>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream.</typeparam>
+        /// <typeparam name="T">The type of the ordering value.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="selector">Selects the value that orders the events. It orders them; it does not group them.</param>
+        /// <param name="comparer">The comparison of ordering values.</param>
+        /// <param name="k">The number of places in the list.</param>
+        /// <returns>A stream of ranked lists.</returns>
         public static IStreamable<TKey, List<RankedEvent<TPayload>>> TopK<TKey, TPayload, T>(
             this IStreamable<TKey, TPayload> source,
             Expression<Func<TPayload, T>> selector,
