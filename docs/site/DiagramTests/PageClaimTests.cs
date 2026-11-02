@@ -926,33 +926,30 @@ public sealed class PageClaimTests
                 g => g.ConsecutivePairs((first, second) => new Out(second.Key, first.Value + "," + second.Value)),
                 (g, r) => r))));
 
-    // consecutive-pairs.md, known issue: in columnar mode, on a payload type whose equality columnar code cannot
-    // use, such as Ev, ConsecutivePairs throws InvalidOperationException when the query is built; int and string
-    // payloads work, and so does Ev given a field-wise equality with SetProperty().PayloadEqualityComparer.
-    // This pins the engine defect as it is today: when it is fixed, this test fails, and consecutive-pairs.md's
-    // known-issue paragraph (and this test) must be updated.
+    // consecutive-pairs.md: "In columnar mode, when Trill's columnar code cannot use the payload type's equality,
+    // as for the diagram's Ev, that clip runs in row mode, and the pairs are the same as in row mode." The pairs are the diagram's,
+    // and the row-mode report names the clip.
     [TestMethod]
     [DoNotParallelize]
-    public void ConsecutivePairsKnownIssueColumnarPayloadEquality()
+    public void ConsecutivePairsInColumnarModeOnAClassPayload()
     {
         var input = Operators.All.Single(e => e.Id == "consecutive-pairs").DefaultInputs[0];
+        var reports = new System.Collections.Concurrent.ConcurrentQueue<RowModeReport>();
         try
         {
             Config.ForceRowBasedExecution = false;
-            var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => Pairs(Operators.Ingress(input)));
-            StringAssert.Contains(thrown.Message, "does not have a valid equality operator for columnar mode");
-            Assert.AreEqual("Start[2,inf)12 End[2,3)12 Start[4,inf)23 End[4,5)23 Start[7,inf)34 End[7,8)34 Start[9,inf)45 End[9,10)45",
-                Show(Operators.Collect(Operators.Ingress(input).Select(e => e.Value).ConsecutivePairs((x, y) => x * 10 + y))));
-            Assert.AreEqual("Start[2,inf)a1-b2: End[2,3)a1-b2: Start[4,inf)b2-a3: End[4,5)b2-a3: Start[7,inf)a3-b4: End[7,8)a3-b4: Start[9,inf)b4-a5: End[9,10)b4-a5:",
-                Show(Operators.Collect(Operators.Ingress(input).Select(e => e.Key + e.Value).ConsecutivePairs((x, y) => x + "-" + y))));
-            var withEquality = Operators.Ingress(input).SetProperty()
-                .PayloadEqualityComparer(new EqualityComparerExpression<Ev>((x, y) => x.Key == y.Key && x.Value == y.Value, x => x.Value));
+            Config.RowModeReporter = reports.Enqueue;
             Assert.AreEqual("Start[2,inf)b:1,2 End[2,3)b:1,2 Start[4,inf)a:2,3 End[4,5)a:2,3 Start[7,inf)b:3,4 End[7,8)b:3,4 Start[9,inf)a:4,5 End[9,10)a:4,5",
-                Show(Operators.Collect(Pairs(withEquality))));
+                Show(Operators.Collect(Pairs(Operators.Ingress(input)))));
         }
         finally
         {
+            Config.RowModeReporter = null;
             Config.ForceRowBasedExecution = true;
         }
+
+        var clips = reports.Where(r => r.Operator.GetType().Name.StartsWith("ClipJoinStreamable", StringComparison.Ordinal)).ToList();
+        Assert.IsTrue(clips.Count > 0, string.Join("; ", reports));
+        Assert.IsTrue(clips.All(r => r.Reason == RowModeReason.NotSupported), string.Join("; ", clips));
     }
 }

@@ -12,6 +12,6 @@ Events that start at the same time are not paired with each other. Each of them 
 
 On a stream with no grouping key, as here, all events are paired regardless of key. Inside `GroupApply`, pairs are formed within each key: `a` would give `1,3` at 4 and `3,5` at 9, and `b` would give `2,4` at 7.
 
-**Known issue in this fork.** In columnar mode, on a payload type whose equality Trill's columnar code cannot use, such as the diagram's `Ev`, `ConsecutivePairs` throws an `InvalidOperationException` when the query is built: the message says the payload type "does not have a valid equality operator for columnar mode". Row mode works, and so do `int` and `string` payloads. So does `Ev` once it is given an equality over its fields, with `SetProperty().PayloadEqualityComparer(new EqualityComparerExpression<Ev>((x, y) => x.Key == y.Key && x.Value == y.Value, x => x.Value))` before `ConsecutivePairs`. The cause is in the engine, and the fix belongs there.
+`ConsecutivePairs` clips the stream with itself. In columnar mode, when Trill's columnar code cannot use the payload type's equality, as for the diagram's `Ev`, that clip runs in [row mode](../row-mode.md), and the pairs are the same as in row mode.
 
 **See also:** [Detect](detect.md), [ClipEventDuration](clip-event-duration.md), [GroupApply](group-apply.md)
