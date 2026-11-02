@@ -21,9 +21,7 @@ public static class Operators
     static readonly EventDto[] Ticks = [P(1, "a", 1), P(2, "b", 2), P(4, "a", 3), P(7, "b", 4), P(9, "a", 5)];
     // Two overlapping events with the same key, for Distinct.
     static readonly EventDto[] Overlapping = [I(1, 6, "a", 1), I(3, 8, "a", 2), I(4, 7, "b", 3)];
-    // An odd and an even a that end together, for Pivot. When an interval event ends while
-    // another in its group lives on, this fork's Pivot can get the result wrong (pivot.md); this
-    // input avoids that.
+    // An odd and an even a that end together, and a b, for Pivot.
     static readonly EventDto[] PivotInput = [I(1, 6, "a", 1), I(3, 6, "a", 2), I(4, 7, "b", 3)];
 
     /// <summary>The catalogue.</summary>

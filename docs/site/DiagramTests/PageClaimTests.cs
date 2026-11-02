@@ -12,7 +12,7 @@ public sealed class EvTwice
     public int Twice;
 }
 
-/// <summary>pivot.md's known issue with Average: the fields hold the aggregate's double result.</summary>
+/// <summary>Pivot with Average: the fields hold the aggregate's double result.</summary>
 public sealed class AverageTotals
 {
     public string Key;
@@ -31,6 +31,34 @@ public sealed class IntKeyed
 public sealed class IntTotals
 {
     public int Key;
+    public int Odd;
+}
+
+/// <summary>pivot.md: an input whose key and value are properties.</summary>
+public sealed class PropEv
+{
+    public string Key { get; set; }
+    public int Value { get; set; }
+}
+
+/// <summary>pivot.md: an output whose key and attribute are properties.</summary>
+public sealed class PropTotals
+{
+    public string Key { get; set; }
+    public int Odd { get; set; }
+}
+
+/// <summary>pivot.md: an object key, which can hold an int Sum although its type differs.</summary>
+public sealed class ObjectKeyed
+{
+    public object Key;
+    public int Value;
+}
+
+/// <summary>pivot.md: the output for <see cref="ObjectKeyed"/>.</summary>
+public sealed class ObjectKeyTotals
+{
+    public object Key;
     public int Odd;
 }
 
@@ -324,26 +352,26 @@ public sealed class PageClaimTests
     static string ShowEdges(List<EventDto> events) =>
         string.Join(" ", events.Select(e => $"{e.Kind[0]}[{e.Start},{e.End?.ToString() ?? "inf"}){e.Key}:{e.Label}"));
 
-    // pivot.md, known issue: with interval events and Sum, "over a:1 [1,6) and a:3 [3,8), Pivot reports
-    // odd 0 from 6 to 8, where the right answer is odd 3", and "GroupApply with a Where per attribute and the aggregate gives the
-    // right values". This pins the engine defect as it is today: when it is fixed, this test fails,
-    // and pivot.md's known-issue paragraph (and this test) must be updated.
+    // pivot.md: "the output changes whenever the set of live events in a group changes". When a:1 [1,6)
+    // ends while a:3 [3,8) is alive, the group's sum drops to 3, as GroupApply with a Where per
+    // attribute also reports. Until fork #19 was fixed, Pivot reported odd 0 here.
     [TestMethod]
-    public void PivotKnownIssueZeroesAGroupWhenOneEventEnds()
+    public void PivotUpdatesAGroupWhenOneEventEnds()
     {
         Config.ForceRowBasedExecution = true;
         var input = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 3)]);
-        Assert.AreEqual("S[1,inf)a:odd 1, even 0 E[1,3)a:odd 1, even 0 S[3,inf)a:odd 4, even 0 E[3,6)a:odd 4, even 0 S[6,inf)a:odd 0, even 0 E[6,8)a:odd 0, even 0",
+        Assert.AreEqual("S[1,inf)a:odd 1, even 0 E[1,3)a:odd 1, even 0 S[3,inf)a:odd 4, even 0 E[3,6)a:odd 4, even 0 S[6,inf)a:odd 3, even 0 E[6,8)a:odd 3, even 0",
             ShowEdges(Operators.Collect(PivotParity(input))));
         Assert.AreEqual("S[1,inf)a:odd 1 E[1,3)a:odd 1 S[3,inf)a:odd 4 E[3,6)a:odd 4 S[6,inf)a:odd 3 E[6,8)a:odd 3",
             ShowEdges(Operators.Collect(input.GroupApply(e => e.Key,
                 g => g.Where(e => e.Value % 2 == 1).Sum(e => e.Value), (g, s) => new Out(g.Key, "odd " + s)))));
     }
 
-    // pivot.md, known issue, scope: the same events as separate start and end edges give the right
-    // answer (the ending takes a different path), and with Average the wrong value is NaN, not 0.
+    // pivot.md: the same holds when the events arrive as separate start and end edges (the engine takes
+    // a different path for an end edge than for an interval's expiry), and for Average, which
+    // reported NaN before the fix.
     [TestMethod]
-    public void PivotKnownIssueScope()
+    public void PivotUpdatesAGroupForEdgesAndForAverage()
     {
         Config.ForceRowBasedExecution = true;
         var edges = new[]
@@ -361,27 +389,25 @@ public sealed class PageClaimTests
                 w => w.Average(v => v))
             .ToStreamEventObservable().Where(e => e.IsData).Subscribe(averages.Add);
         Assert.AreEqual(2.0, averages.First(e => e.StartTime == 3 && e.IsStart).Payload.Odd);
-        Assert.IsTrue(double.IsNaN(averages.First(e => e.StartTime == 6 && e.IsStart).Payload.Odd));
+        Assert.AreEqual(3.0, averages.First(e => e.StartTime == 6 && e.IsStart).Payload.Odd);
     }
 
-    // pivot.md, known issue: "Whether the result is wrong, and by how much, depends on the aggregate,
-    // the values, and any event of the group that starts at the same moment". With a:5 starting at 6,
-    // Sum reports 5 over [6,8), not 0; the right answer is 8. With a surviving a:0 instead, the
-    // zeroed state happens to be the right answer.
+    // pivot.md: when a:5 starts at 6, the moment a:1 ends, one output covers both changes: odd 3 + 5 = 8
+    // (before the fix, 5). With a:0 alive instead, the value is even, so odd drops to 0.
     [TestMethod]
-    public void PivotKnownIssueDependsOnAnEventStartingAtTheEnd()
+    public void PivotUpdatesAGroupWhenOneEventEndsAsAnotherStarts()
     {
         Config.ForceRowBasedExecution = true;
         var input = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 3), I(6, 8, "a", 5)]);
-        StringAssert.Contains(ShowEdges(Operators.Collect(PivotParity(input))), "S[6,inf)a:odd 5, even 0");
+        StringAssert.Contains(ShowEdges(Operators.Collect(PivotParity(input))), "S[6,inf)a:odd 8, even 0");
 
         var zero = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 0)]);
         StringAssert.Contains(ShowEdges(Operators.Collect(PivotParity(zero))), "S[6,inf)a:odd 0, even 0");
     }
 
-    // pivot.md: "If the key field's type can also hold the aggregate's result, Pivot fills that field as
-    // an attribute field too, which overwrites the key: an int key with Sum comes out as 0 when no
-    // event's attribute is the key field's name."
+    // pivot.md: "If the key's type can also hold the aggregate's result, Pivot fills the key as an
+    // attribute field too, which overwrites it: an int key with Sum comes out as 0 when no event's
+    // attribute is the key's name."
     [TestMethod]
     public void PivotOverwritesAKeyOfTheAggregateType()
     {
@@ -394,6 +420,33 @@ public sealed class PageClaimTests
         Assert.AreEqual(3, output[0].Odd);
     }
 
+    // pivot.md: "Give the key a type that cannot hold the aggregate's result". A different type is not
+    // enough: an object key can hold an int Sum, so Pivot overwrites it too and the group's key is lost.
+    [TestMethod]
+    public void PivotOverwritesAnObjectKey()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 6, "a", 3)]).Select(e => new ObjectKeyed { Key = e.Key, Value = e.Value });
+        var output = new List<ObjectKeyTotals>();
+        input.Pivot(() => new ObjectKeyTotals(), e => e.Key, e => "Odd", e => e.Value, w => w.Sum(v => v))
+            .ToStreamEventObservable().Where(e => e.IsData).Subscribe(e => output.Add(e.Payload));
+        Assert.AreNotEqual("a", output[0].Key);
+        Assert.AreEqual(3, output[0].Odd);
+    }
+
+    // pivot.md: "The key selector must name fields or properties of the input, ... and the output type
+    // needs fields or properties with the same names."
+    [TestMethod]
+    public void PivotAcceptsPropertyKeys()
+    {
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 6, "a", 1), I(3, 8, "a", 3)]).Select(e => new PropEv { Key = e.Key, Value = e.Value });
+        var output = new List<string>();
+        input.Pivot(() => new PropTotals(), e => e.Key, e => "Odd", e => e.Value, w => w.Sum(v => v))
+            .ToStreamEventObservable().Where(e => e.IsStart).Subscribe(e => output.Add(e.StartTime + ":" + e.Payload.Key + ":" + e.Payload.Odd));
+        CollectionAssert.AreEqual(new[] { "1:a:1", "3:a:4", "6:a:3" }, output);
+    }
+
     // unpivot.md: other kinds of value field follow other rules; "an int input field with an object
     // value field throws when the query is built".
     [TestMethod]
@@ -404,7 +457,7 @@ public sealed class PageClaimTests
             input.Unpivot(() => new ObjectTriple(), p => p.Key, t => t.Attribute, t => t.Value));
     }
 
-    // pivot.md: "The key selector must name fields of the input". A computed key is refused.
+    // pivot.md: "The key selector must name fields or properties of the input". A computed key is refused.
     [TestMethod]
     public void PivotRefusesAComputedKey()
     {
