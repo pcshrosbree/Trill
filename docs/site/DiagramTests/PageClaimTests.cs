@@ -70,7 +70,7 @@ public sealed class ObjectTriple
     public object Value;
 }
 
-/// <summary>unpivot.md's known issue: int fields are never unpivoted.</summary>
+/// <summary>unpivot.md: int fields, which an int value field unpivots.</summary>
 public sealed class IntPair
 {
     public string Key;
@@ -78,7 +78,7 @@ public sealed class IntPair
     public int High;
 }
 
-/// <summary>unpivot.md's known issue: nullable properties are handled the wrong way round.</summary>
+/// <summary>unpivot.md: int? properties, each unpivoted unless it is null.</summary>
 public sealed class PropPair
 {
     public string Key { get; set; }
@@ -466,8 +466,8 @@ public sealed class PageClaimTests
             input.Pivot(() => new Totals(), e => e.Key + "x", e => "Odd", e => e.Value, w => w.Sum(v => v)));
     }
 
-    // unpivot.md: with an int value field, an int? field "becomes one output event ... unless it is
-    // null", and "a field of another type, such as string, is ignored".
+    // unpivot.md: with an int value field, an int? field "becomes one output event", "a nullable member
+    // that is null is skipped", and "a member of another type, such as string, is ignored".
     [TestMethod]
     public void UnpivotSkipsNullAndNonFittingFields()
     {
@@ -481,23 +481,25 @@ public sealed class PageClaimTests
                 .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
     }
 
-    // unpivot.md, known issues: with an int value field, int fields are always skipped; int? properties
-    // with values are skipped, and null ones throw. These pin the engine defects as they are today: when they are
-    // fixed, this test fails, and unpivot.md's known-issues paragraph (and this test) must be updated.
+    // unpivot.md: with an int value field, "each other input field or property of that type (int) or of
+    // its nullable type (int?) becomes one output event", and "a nullable member that is null is skipped".
     [TestMethod]
-    public void UnpivotKnownIssues()
+    public void UnpivotIntFieldsAndNullableProperties()
     {
         Config.ForceRowBasedExecution = true;
         var input = Operators.Ingress([I(1, 5, "a", 1)]);
-        Assert.AreEqual("",
+        Assert.AreEqual("Interval[1,5)a:High 10 Interval[1,5)a:Low 1",
             Show(Operators.Collect(input.Select(e => new IntPair { Key = e.Key, Low = e.Value, High = e.Value * 10 })
                 .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
-        Assert.AreEqual("",
+        Assert.AreEqual("Interval[1,5)a:High 10 Interval[1,5)a:Low 1",
             Show(Operators.Collect(input.Select(e => new PropPair { Key = e.Key, Low = e.Value, High = e.Value * 10 })
                 .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            Operators.Collect(input.Select(e => new PropPair { Key = e.Key, Low = null, High = null })
-                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value)));
+        Assert.AreEqual("Interval[1,5)a:High 10",
+            Show(Operators.Collect(input.Select(e => new PropPair { Key = e.Key, Low = null, High = e.Value * 10 })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
+        Assert.AreEqual("",
+            Show(Operators.Collect(input.Select(e => new PropPair { Key = e.Key, Low = null, High = null })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value))));
     }
 
     // reduce.md: "GroupApply(keySelector, apply, resultSelector) is ... Map(keySelector) followed by
