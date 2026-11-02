@@ -2,13 +2,24 @@
 
 This is a fork of [microsoft/Trill](https://github.com/microsoft/Trill). I maintain it for Meshner, a .NET profiler. Microsoft last released Trill in 2021. That release misidentifies .NET 7 and later as .NET Framework. On .NET 10, batch input failed in my tests. Per-event input appeared to run without generated code, with no warning about the fallback.
 
-The fork starts from Microsoft's `master` at commit `b3d6b9bb48`. Each change is kept small and separate, so that it can be offered back to microsoft/Trill as its own pull request. The plan, none of it done yet:
+The fork starts from Microsoft's `master` at commit `b3d6b9bb48`. Each change is kept small and separate, so that it can be offered back to microsoft/Trill as its own pull request.
 
-- target .NET 10 (`net10.0`) only;
-- fix engine problems, starting with hash mixing in `FastDictionary`;
+Done so far:
+
+- The library and its tests target .NET 10 (`net10.0`) only.
+- Engine fixes for lost batches in `BinaryPipe`, a `CountAggregate.Sum` that subtracted, and wrong decisions about columnar mode for some payload types and operators.
+- Fixes to code generation. Generated code can reach non-public members of user assemblies. The code generator writes bool, char, string, numeric and enum constants so that they keep their type and value, whatever the current culture.
+- Captured variables. Most operators now read a local variable captured by a lambda once, when the query is built. This applies only if the variable holds a bool, char, string, number or enum and the lambda does not assign to it. Inside the reduce function of a map-reduce operation, the value is read at each subscription instead. Reading captured variables this way removes one reason for an operator to fall back to row mode. [Pull request #22](https://github.com/pcshrosbree/Trill/pull/22) has the details.
+- Diagnostics. When fallback to row mode is disabled, the exception for a code-generation failure now names the operator and gives the compiler's errors. An application can set `Config.RowModeReporter` to be told about each operator that falls back to row mode.
+
+The [merged pull requests](https://github.com/pcshrosbree/Trill/pulls?q=is%3Apr+is%3Amerged) list every change.
+
+Still to do:
+
+- more engine fixes, including hash mixing in `FastDictionary`;
 - publish the result as the NuGet package `Meshner.Trill`, keeping the namespace `Microsoft.StreamProcessing`.
 
-Some changes will come from Amir Burbea's modernisation fork ([amirburbea/Trill](https://github.com/amirburbea/Trill), branch `modernize-net10`), credited in each commit.
+Some changes come from Amir Burbea's modernisation fork ([amirburbea/Trill](https://github.com/amirburbea/Trill), branch `modernize-net10`), with him as their author.
 
 Issues are welcome here.
 
