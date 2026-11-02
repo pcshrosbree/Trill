@@ -1,0 +1,14 @@
+<!-- Framework members that Trill reaches only by reflection, so the trimmer cannot see
+     that they are used. Trill's SortedMultiSet, behind Min, Max, TopK and the
+     percentiles, reads SortedDictionary's private _set field and calls SortedSet's
+     Reverse method; without them its static constructor throws in the browser. -->
+<linker>
+  <assembly fullname="System.Collections">
+    <type fullname="System.Collections.Generic.SortedDictionary`2">
+      <field name="_set" />
+    </type>
+    <type fullname="System.Collections.Generic.SortedSet`1">
+      <method name="Reverse" />
+    </type>
+  </assembly>
+</linker>

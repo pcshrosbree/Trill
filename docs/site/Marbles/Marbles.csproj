@@ -19,6 +19,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Catalog/Catalog.csproj" />
+    <!-- Keeps the framework members Trill uses only by reflection; see the file. -->
+    <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
   </ItemGroup>
   <ItemGroup>
     <!-- Row mode never invokes Roslyn, so it is never requested. Lazy-loading it
