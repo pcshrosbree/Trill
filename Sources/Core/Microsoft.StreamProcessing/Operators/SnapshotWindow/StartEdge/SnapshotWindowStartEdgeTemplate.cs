@@ -462,7 +462,7 @@ using Microsoft.StreamProcessing.Aggregates;
                     this.batch.hash.col[c] = currentHash;
                     this.batch.Count++;
                     if (this.batch.Count == Config.DataBatchSize) FlushContents();
-                    currentState.timestamp = syncTime;
+                    this.heldAggregates.entries[index].value.timestamp = syncTime;
                     this.heldAggregates.SetDirty(ref index);
                 }
             }
