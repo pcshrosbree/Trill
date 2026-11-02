@@ -62,7 +62,7 @@ public sealed class ObjectKeyTotals
     public int Odd;
 }
 
-/// <summary>unpivot.md: a value field of type object, which an int input field cannot be unpivoted into.</summary>
+/// <summary>unpivot.md: a value field of type object, into which int and int? members are boxed.</summary>
 public sealed class ObjectTriple
 {
     public string Key;
@@ -447,14 +447,28 @@ public sealed class PageClaimTests
         CollectionAssert.AreEqual(new[] { "1:a:1", "3:a:4", "6:a:3" }, output);
     }
 
-    // unpivot.md: other kinds of value field follow other rules; "an int input field with an object
-    // value field throws when the query is built".
+    // unpivot.md: with an object value field, "an int or int? member is boxed into the value field, and
+    // a nullable member that is null is skipped".
     [TestMethod]
-    public void UnpivotIntFieldToObjectValueThrowsAtBuild()
+    public void UnpivotIntAndNullableIntToObjectValueAreBoxed()
     {
-        var input = Operators.Ingress([I(1, 5, "a", 1)]).Select(e => new IntPair { Key = e.Key, Low = e.Value, High = e.Value });
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            input.Unpivot(() => new ObjectTriple(), p => p.Key, t => t.Attribute, t => t.Value));
+        Config.ForceRowBasedExecution = true;
+        var input = Operators.Ingress([I(1, 5, "a", 1)]);
+        Assert.AreEqual("High=Int32 10 Low=Int32 1",
+            ShowObjects(input.Select(e => new IntPair { Key = e.Key, Low = e.Value, High = e.Value * 10 })
+                .Unpivot(() => new ObjectTriple(), p => p.Key, t => t.Attribute, t => t.Value)));
+        Assert.AreEqual("High=Int32 10",
+            ShowObjects(input.Select(e => new Pair { Key = e.Key, Low = null, High = e.Value * 10 })
+                .Unpivot(() => new ObjectTriple(), p => p.Key, t => t.Attribute, t => t.Value)));
+    }
+
+    // Each output's attribute, then its value's runtime type and value, so an unboxed value fails here.
+    static string ShowObjects(IStreamable<Empty, ObjectTriple> query)
+    {
+        var output = new List<string>();
+        query.ToStreamEventObservable().Where(e => e.IsData)
+            .Subscribe(e => output.Add(e.Payload.Attribute + "=" + (e.Payload.Value is null ? "null" : e.Payload.Value.GetType().Name + " " + e.Payload.Value)));
+        return string.Join(" ", output.OrderBy(s => s, StringComparer.Ordinal));
     }
 
     // pivot.md: "The key selector must name fields or properties of the input". A computed key is refused.
