@@ -583,28 +583,24 @@ public sealed class PageClaimTests
         Assert.AreEqual(oneToFifteen, AggregateArities("Aggregate"));
     }
 
-    // group-aggregate.md, known issue: in columnar mode, on a stream whose events never end, a string
-    // result throws NullReferenceException; another result type, or row mode, gives the right answer.
-    // This pins the engine defect as it is today: when it is fixed, this test fails, and
-    // group-aggregate.md's known-issue paragraph (and this test) must be updated.
+    // group-aggregate.md no longer lists this as a known issue: on a stream whose events never end, a merger that
+    // returns a string gives the same events in columnar mode as in row mode.
     [TestMethod]
     [DoNotParallelize]
-    public void GroupAggregateKnownIssueColumnarStringResultOnStartEdges()
+    public void GroupAggregateStringResultOnStartEdgesInBothModes()
     {
+        const string expected = "Start[1,inf)a 1: Start[2,inf)b 1: End[1,4)a 1: Start[4,inf)a 2: End[2,7)b 1: Start[7,inf)b 2: End[4,9)a 2: Start[9,inf)a 3:";
         var input = Operators.All.Single(e => e.Id == "average").DefaultInputs[0];
         try
         {
-            Config.ForceRowBasedExecution = false;
-            var columnar = Operators.Ingress(input).AlterEventDuration(StreamEvent.InfinitySyncTime);
-            Assert.ThrowsExactly<NullReferenceException>(() =>
-                Operators.Collect(columnar.GroupAggregate(e => e.Key, w => w.Count(), (g, n) => g.Key + " " + n)));
-            Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:1 End[1,4)a:1 Start[4,inf)a:2 End[2,7)b:1 Start[7,inf)b:2 End[4,9)a:2 Start[9,inf)a:3",
-                Show(Operators.Collect(columnar.GroupAggregate(e => e.Key, w => w.Count(), (g, n) => new Ev { Key = g.Key, Value = (int)n }))));
-
-            Config.ForceRowBasedExecution = true;
-            Assert.AreEqual("Start[1,inf)a 1: Start[2,inf)b 1: End[1,4)a 1: Start[4,inf)a 2: End[2,7)b 1: Start[7,inf)b 2: End[4,9)a 2: Start[9,inf)a 3:",
-                Show(Operators.Collect(Operators.Ingress(input).AlterEventDuration(StreamEvent.InfinitySyncTime)
-                    .GroupAggregate(e => e.Key, w => w.Count(), (g, n) => g.Key + " " + n))));
+            foreach (var rowMode in new[] { true, false })
+            {
+                Config.ForceRowBasedExecution = rowMode;
+                Assert.AreEqual(expected,
+                    Show(Operators.Collect(Operators.Ingress(input).AlterEventDuration(StreamEvent.InfinitySyncTime)
+                        .GroupAggregate(e => e.Key, w => w.Count(), (g, n) => g.Key + " " + n))),
+                    rowMode ? "row mode" : "columnar mode");
+            }
         }
         finally
         {
