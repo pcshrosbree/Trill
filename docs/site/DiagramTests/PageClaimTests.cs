@@ -12,6 +12,23 @@ public sealed class EvTwice
     public int Twice;
 }
 
+/// <summary>top-k.md: a payload with no comparison whose last member has no comparison either.</summary>
+public sealed class EvWithTag
+{
+    public string Key;
+    public int Value;
+    public object Tag;
+}
+
+/// <summary>top-k.md: a payload with no comparison and a member whose type cannot be compared at all.</summary>
+public sealed class EvWithSpan
+{
+    public string Key;
+    public int Value;
+
+    public ReadOnlySpan<char> Text => Key.AsSpan();
+}
+
 /// <summary>Pivot with Average: the fields hold the aggregate's double result.</summary>
 public sealed class AverageTotals
 {
@@ -723,22 +740,58 @@ public sealed class PageClaimTests
         Assert.AreEqual("[5,10)1:5,2:3,2:3,4:1", ShowRanks(values.TopK(4)));
     }
 
-    // top-k.md, known issue: when two live events tie on the ordering value and Trill has no comparison for the
-    // payload type, as for Ev, TopK throws ArgumentException; int (TopKTiesShareARank), string, anonymous-type
-    // and Tuple payloads work. This pins the engine defect as it is today: when it is fixed, this test fails,
-    // and top-k.md's known-issue paragraph (and this test) must be updated.
+    // top-k.md: when two live events tie on the ordering value and the payload type has no comparison, as for Ev,
+    // the tied payloads are ordered by their public fields and then their public properties (for Ev, Key and then
+    // Value), and payloads equal in all of them are copies; in row and in columnar mode. int (TopKTiesShareARank),
+    // string, anonymous-type and Tuple payloads keep their own comparison. TopKTieLimits pins the page's limits.
     [TestMethod]
-    public void TopKKnownIssueTiesOnAPayloadThatCannotBeCompared()
+    [DoNotParallelize]
+    public void TopKTiesOnAPayloadWithoutAComparison()
     {
+        static string Ranks(IStreamable<Empty, List<RankedEvent<Ev>>> query) => Show(Operators.Collect(
+            query.Select(l => new Out(null, string.Join(",", l.Select(r => r.Rank + ":" + r.Payload.Key + r.Payload.Value))))));
+        EventDto[] events = [Tick(1, "b", 5), Tick(2, "a", 5), Tick(3, "c", 4), Tick(4, "a", 5)];
+        Assert.AreEqual("Interval[5,10)1:a5,1:a5,1:b5", Ranks(In(events).TumblingWindowLifetime(5).TopK(e => e.Value, 2)));
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            Assert.AreEqual("Interval[5,10)1:a5,1:a5,1:b5", Ranks(Operators.Ingress(events).TumblingWindowLifetime(5).TopK(e => e.Value, 2)));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = true;
+        }
+
         var tie = In(Tick(1, "a", 5), Tick(2, "b", 5)).TumblingWindowLifetime(5);
-        var thrown = Assert.ThrowsExactly<ArgumentException>(() => Operators.Collect(tie.TopK(e => e.Value, 2)));
-        StringAssert.Contains(thrown.Message, "At least one object must implement IComparable");
         Assert.AreEqual("[5,10)1:a5,1:b5", ShowRanks(tie.Select(e => e.Key + e.Value).TopK(s => s.Length, 2)));
         Assert.AreEqual("[5,10)1:{ Key = a, Value = 5 },1:{ Key = b, Value = 5 }",
             ShowRanks(tie.Select(e => new { e.Key, e.Value }).TopK(p => p.Value, 2)));
         Assert.AreEqual("[5,10)1:(a, 5),1:(b, 5)", ShowRanks(tie.Select(e => Tuple.Create(e.Key, e.Value)).TopK(p => p.Item2, 2)));
         var noTie = In(Tick(1, "a", 5), Tick(2, "b", 4)).TumblingWindowLifetime(5);
         Assert.AreEqual("Interval[5,10)1. a:5, 2. b:4", Show(Operators.Collect(noTie.TopK(e => e.Value, 2))));
+    }
+
+    // top-k.md: some ties still throw. Tied payloads equal up to a member holding two different objects of a type
+    // with no comparison; a payload type with no public fields or properties (object holding plain objects); a payload
+    // with a ReadOnlySpan property. A boxed int in a stream of object keeps the default order.
+    [TestMethod]
+    public void TopKTieLimits()
+    {
+        var objects = In(Tick(1, "a", 5), Tick(2, "b", 5)).TumblingWindowLifetime(5);
+        var plain = Assert.ThrowsExactly<ArgumentException>(() => Operators.Collect(
+            objects.Select(e => new object()).TopK(e => 5, 2)));
+        StringAssert.Contains(plain.Message, "At least one object must implement IComparable");
+        Assert.AreEqual("[5,10)1:1,1:2", ShowRanks(In(Tick(1, "a", 2), Tick(2, "b", 1)).TumblingWindowLifetime(5)
+            .Select(e => (object)e.Value).TopK(e => 5, 2)));
+
+        var sameKey = In(Tick(1, "a", 5), Tick(2, "a", 5)).TumblingWindowLifetime(5);
+        var tagged = Assert.ThrowsExactly<ArgumentException>(() => Operators.Collect(
+            sameKey.Select(e => new EvWithTag { Key = e.Key, Value = e.Value, Tag = new object() }).TopK(e => e.Value, 2)));
+        StringAssert.Contains(tagged.Message, "At least one object must implement IComparable");
+        var tie = In(Tick(1, "a", 5), Tick(2, "b", 5)).TumblingWindowLifetime(5);
+        var spanned = Assert.ThrowsExactly<ArgumentException>(() => Operators.Collect(
+            tie.Select(e => new EvWithSpan { Key = e.Key, Value = e.Value }).TopK(e => e.Value, 2)));
+        StringAssert.Contains(spanned.Message, "At least one object must implement IComparable");
     }
 
     // percentile-continuous.md: the two definitions at p = 0.25 over 1, 2, 3 and over 4, 5.
