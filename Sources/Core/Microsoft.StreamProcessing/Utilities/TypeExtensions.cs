@@ -358,6 +358,43 @@ namespace Microsoft.StreamProcessing
         private static bool HasAutoPropertyBackingField(PropertyInfo p)
             => p.DeclaringType.GetField("<" + p.Name + ">k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance) != null;
 
+        // Returns the first field that a base class of type declares and that no column holds, or null. A public
+        // field is held if ColumnMembers lists it; an auto-property's backing field is held if ColumnMembers lists
+        // the property, matched by declaring class and name.
+        private static string BaseClassStateWithoutColumn(Type type)
+        {
+            var columns = ColumnarRepresentation.ColumnMembers(type).ToList();
+            for (var baseType = type.GetTypeInfo().BaseType; baseType != null && baseType != typeof(object); baseType = baseType.GetTypeInfo().BaseType)
+            {
+                var declared = baseType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+                foreach (var field in declared)
+                {
+                    var property = AutoPropertyOf(field);
+                    if (property == null)
+                    {
+                        if (!columns.Any(m => m is FieldInfo held && held.DeclaringType == baseType && held.Name == field.Name))
+                            return "field " + field.Name + " of base class " + baseType.Name + " has no column";
+                    }
+                    else if (!columns.Any(m => m is PropertyInfo held && held.DeclaringType == baseType && held.Name == property))
+                    {
+                        return "property " + property + " of base class " + baseType.Name + " has no column";
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        // The name of the auto-property whose backing field this is, or null for any other field.
+        private static string AutoPropertyOf(FieldInfo field)
+        {
+            const string Suffix = ">k__BackingField";
+            var name = field.Name;
+            return name.StartsWith("<", StringComparison.Ordinal) && name.EndsWith(Suffix, StringComparison.Ordinal)
+                ? name.Substring(1, name.Length - 1 - Suffix.Length)
+                : null;
+        }
+
         /// <summary>
         /// Returns true iff <paramref name="type"/> can be used as a *non* key
         /// type for code gen. (All types can be used as key types.)
@@ -456,6 +493,12 @@ namespace Microsoft.StreamProcessing
                     .GroupBy(m => m.Name, StringComparer.Ordinal)
                     .FirstOrDefault(g => g.Count() > 1);
                 if (duplicate != null) return "more than one member is named " + duplicate.Key;
+
+                // The rules above see only what reflection returns on the type itself. That leaves out a base
+                // class's private fields, and the backing field of a base auto-property hidden by a property of the
+                // same type. Such state has no column, so columnar mode would lose it.
+                var lostState = BaseClassStateWithoutColumn(type);
+                if (lostState != null) return lostState;
             }
 
             if (type.IsValueType) // we can always create instances of a struct
