@@ -246,6 +246,21 @@ namespace Microsoft.StreamProcessing
         [EditorBrowsable(EditorBrowsableState.Never)]
         public T Last() => reverseEnumerable(this.Elements).First().Key;
 
+        /// <summary>
+        /// Gets the element at the given position in sort order, including multiplicity, counting from 0.
+        /// The index must be at least 0 and less than <see cref="TotalCount"/>.
+        /// </summary>
+        internal T ElementAt(long index)
+        {
+            foreach (var keyAndCount in this.Elements)
+            {
+                if (index < keyAndCount.Value) return keyAndCount.Key;
+                index -= keyAndCount.Value;
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
         internal T SingleOrDefault()
         {
             if (this.Elements.Count != 1) return default;

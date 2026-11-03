@@ -32,11 +32,9 @@ namespace Microsoft.StreamProcessing.Aggregates
             {
                 // The value at position ceiling(percentile * count), counting from 1. For a percentile of 0
                 // that position is 0, so take the first value instead, as for any percentile just above 0.
-                int rank = Math.Max(0, (int)CeilingIgnoringRoundingError(this.percentile * set.TotalCount) - 1);
-
-                var enumerator = set.GetEnumerable().GetEnumerator();
-                for (int index = 0; index <= rank; index++) enumerator.MoveNext();
-                result = enumerator.Current;
+                // A count above 2^53 can round up when converted to double, so keep the position within the set.
+                long rank = Math.Max(0, (long)CeilingIgnoringRoundingError(this.percentile * set.TotalCount) - 1);
+                result = set.ElementAt(Math.Min(rank, set.TotalCount - 1));
             }
 
             return result;

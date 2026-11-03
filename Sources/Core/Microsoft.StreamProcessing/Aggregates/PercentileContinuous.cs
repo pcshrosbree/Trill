@@ -36,14 +36,13 @@ namespace Microsoft.StreamProcessing.Aggregates
                 double dividend = floorRank % 1;
                 floorRank = Math.Floor(floorRank);
 
-                var enumerator = set.GetEnumerable().GetEnumerator();
-                for (int index = 0; index <= floorRank; index++) enumerator.MoveNext();
-                var currentFloorRank = enumerator.Current;
+                // A count above 2^53 can round up when converted to double, so keep the position within the set.
+                long index = Math.Min((long)floorRank, set.TotalCount - 1);
+                var currentFloorRank = set.ElementAt(index);
 
                 if (dividend != 0)
                 {
-                    enumerator.MoveNext();
-                    currentFloorRankPlusOne = enumerator.Current;
+                    currentFloorRankPlusOne = set.ElementAt(index + 1);
                 }
 
                 result = currentFloorRank + dividend * (currentFloorRankPlusOne - currentFloorRank);
