@@ -853,6 +853,23 @@ public sealed class PageClaimTests
         Assert.ThrowsExactly<ArgumentException>(() => input.Aggregate(w => w.PercentileDiscrete(-0.1, e => e.Value)));
     }
 
+    // percentile-continuous.md: rounding error in p × n does not move PercentileDiscrete's position; 0.07 × 100 is
+    // 7.000000000000001 in double arithmetic, and 0.07 over the values 1 to 100 still gives 7. The tolerance also
+    // takes 0.5 + 2^-52 over two values, whose product is exactly 1 + 2^-51, as 1, so it gives the 1st value.
+    [TestMethod]
+    public void PercentileDiscreteIgnoresRoundingError()
+    {
+        Assert.AreEqual(7.000000000000001, 0.07 * 100);
+        var hundred = In(Enumerable.Range(1, 100).Select(v => I(1, 5, "a", v)).ToArray());
+        Assert.AreEqual("Start[1,inf)7 End[1,5)7", Show(Operators.Collect(
+            hundred.Aggregate(w => w.PercentileDiscrete(0.07, e => e.Value)).Select(p => new Out(null, p.ToString())))));
+        var onPurpose = 0.5 + Math.Pow(2, -52);
+        Assert.AreEqual(1 + Math.Pow(2, -51), onPurpose * 2);
+        var two = In(I(1, 5, "a", 1), I(1, 5, "b", 2));
+        Assert.AreEqual("Start[1,inf)1 End[1,5)1", Show(Operators.Collect(
+            two.Aggregate(w => w.PercentileDiscrete(onPurpose, e => e.Value)).Select(p => new Out(null, p.ToString())))));
+    }
+
     // percentile-continuous.md: at 0, PercentileDiscrete and PercentileContinuous both give the smallest value, as Min does.
     [TestMethod]
     public void PercentileAtZeroIsTheSmallestValue()
