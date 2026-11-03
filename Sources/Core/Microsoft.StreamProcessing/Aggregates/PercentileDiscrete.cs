@@ -47,12 +47,14 @@ namespace Microsoft.StreamProcessing.Aggregates
         /// value, and 0.07 * 100 comes out as 7.000000000000001, whose plain ceiling, 8, would pick the 8th value
         /// instead of the 7th. Storing the percentile as a double and multiplying it by the count can each introduce
         /// rounding error of at most half a unit in the last place, so for normal (not subnormal) values the combined
-        /// relative error is at most 2^-52. (A tiny product whose relative error is larger still gives the first value,
-        /// through the clamp to position 0.)
+        /// relative error is at most 2^-52 when the count is exactly representable as a double, as every count up to
+        /// 2^53 is. (A tiny product whose relative error is larger still gives the first value, through the clamp to
+        /// position 0.)
         /// A product just above a whole number is taken to be that whole number if the relative gap is no more than
-        /// twice that bound (2^-51). This is a deliberate tolerance: it cannot tell rounding error from a percentile
-        /// set that close on purpose, so 0.5 + 2^-52 over two values, whose product is exactly 1 + 2^-51, also gives
-        /// the 1st value.
+        /// twice the 2^-52 bound (2^-51). That also covers a larger count that does not convert to double exactly:
+        /// the conversion is a third rounding, after which the combined relative error is at most about 1.5 * 2^-52.
+        /// This is a deliberate tolerance: it cannot tell rounding error from a percentile set that close on purpose,
+        /// so 0.5 + 2^-52 over two values, whose product is exactly 1 + 2^-51, also gives the 1st value.
         /// </summary>
         private static double CeilingIgnoringRoundingError(double product)
         {
