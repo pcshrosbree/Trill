@@ -115,6 +115,11 @@ namespace Microsoft.StreamProcessing
                         Tuple.Create(payloadParameter, new SelectParameterInformation() { BatchName = "batch", BatchType = sourceMessageType, IndexVariableName = "i", parameterRepresentation = new ColumnarRepresentation(payloadType) })
                     };
                     var projectionResult = SelectTransformer.Transform(pseudoLambda, parameterSubstitutions, template.resultPayloadRepresentation, true, stream.HasStartEdge);
+                    if (projectionResult.Error)
+                    {
+                        errorMessages = "error while transforming the result selector";
+                        throw new InvalidOperationException();
+                    }
                     template.computedFields = projectionResult.ComputedFields;
                     template.projectionReturningResultInstance = projectionResult.ProjectionReturningResultInstance;
                     template.useEnumerator = false;

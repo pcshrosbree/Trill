@@ -248,7 +248,8 @@ namespace Microsoft.StreamProcessing
                 var projectionResult = SelectTransformer.Transform(resultSelector, parameterSubstitutions, resultRepresentation, true);
                 if (projectionResult.Error)
                 {
-                    return null;
+                    errorMessages = "error while transforming the result selector";
+                    throw new InvalidOperationException();
                 }
                 template.finalResultSelector =
                     (key, aggregateResult) =>
