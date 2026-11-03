@@ -50,23 +50,25 @@ Some operators directly after the ingress do trigger another report. For an ingr
 
 ### Types that cannot be held in columns
 
-For `TypeNotColumnar`, `Detail` names the first rule the type breaks. Trill stops at the first failure. It follows the table from top to bottom, treating the three consecutive property checks as a group. For each property, it checks for a missing setter, a non-public getter or setter, and an init-only setter, in that order. It then moves to the next property in reflection order.
+For `TypeNotColumnar`, `Detail` names the first rule the type breaks. Trill stops at the first failure. It follows the table from top to bottom, treating the three consecutive property checks as one group and the two base-class checks as another. For each property, it checks for a missing setter, a non-public getter or setter, and an init-only setter, in that order. It then moves to the next property in reflection order. For the base-class checks, it starts with the nearest base class and checks every field that class declares, auto-property backing fields included, before it moves to the next base class.
 
 | `Detail` | Typical cause |
 |---|---|
 | `field X has an anonymous type` | A public field whose type is anonymous. |
 | `property X has an anonymous type` | An anonymous type with a property whose type is also anonymous. An anonymous type with no such property passes the check without applying the remaining rules. |
 | `the type is not public` | Generated code must name the type, so it must be visible outside its assembly. |
-| `field X is not public` | A non-public instance field other than an auto-property's backing field. An F# record stops here, because it keeps its state in fields such as `Key@`. |
+| `field X is not public` | A non-public instance field other than an auto-property's backing field. An F# record stops here, because it keeps its state in fields such as `Key@`. Reflection on a class does not return a private field that a base class declares, so that field falls under `field X of base class B has no column` instead. |
 | `field X is read-only` | A `readonly` field, as in a `readonly struct`. |
 | `property X has no setter` | A get-only auto-property. |
 | `property X is not public` | An auto-property whose getter or setter is not public. |
 | `property X has an init-only setter` | A `{ get; init; }` property. A C# positional record stops here. |
-| `more than one member is named X` | A class that uses `new` to hide an inherited public field or auto-property. One exception: an auto-property that hides an auto-property of the same type, because reflection then returns only the derived property. |
+| `more than one member is named X` | A class that uses `new` to hide an inherited public field or auto-property. A property that hides an auto-property of the same type does not break this rule, because reflection then returns only the derived property. The hidden base auto-property falls under `property X of base class B has no column` instead. |
+| `field X of base class B has no column` | A field that a base class declares and that has no column, such as a private field. |
+| `property X of base class B has no column` | A base class's auto-property that has no column, such as one hidden by a property of the same type. |
 | `the type is abstract or an interface` | A class that is abstract, or an interface. |
 | `the type has no public parameterless constructor` | A class that Trill cannot create. |
 
-A struct skips the last two rules. For types other than anonymous types, columnar mode requires a public type that keeps its state in public, settable fields and auto-properties, no two with the same name. A class must also be concrete and have a public parameterless constructor.
+A struct skips the last two rules. For types other than anonymous types, columnar mode requires a public type that keeps all its state, including the state its base classes declare, in public, settable fields and auto-properties, no two with the same name. A class must also be concrete and have a public parameterless constructor.
 
 ## When the hook is called
 

@@ -137,6 +137,34 @@ public sealed class HidesPropertyOfSameType : HiddenBase
     public new string Property { get; set; }
 }
 
+/// <summary>row-mode.md's base-class rule: a base class that keeps state in a private field.</summary>
+public class KeepsPrivateState
+{
+    private int secret;
+
+    public int Secret => this.secret;
+
+    public void SetSecret(int value) => this.secret = value;
+}
+
+/// <summary>Inherits the private field: reflection on this class does not return it.</summary>
+public sealed class InheritsPrivateState : KeepsPrivateState
+{
+    public string Key;
+}
+
+/// <summary>row-mode.md's base-class order: a nearer base class whose auto-property gets hidden.</summary>
+public class AddsNameProperty : KeepsPrivateState
+{
+    public string Name { get; set; }
+}
+
+/// <summary>Hides Name with one of the same type; the private field is one class further up.</summary>
+public sealed class HidesNameOfSameType : AddsNameProperty
+{
+    public new string Name { get; set; }
+}
+
 /// <summary>row-mode.md's example payload: its read-only field keeps it out of columnar mode.</summary>
 public sealed class Reading
 {
@@ -371,8 +399,8 @@ public sealed class PageClaimTests
     }
 
     // row-mode.md: a class that hides an inherited field with new reports "more than one member
-    // is named Field"; an auto-property that hides one of the same type is the exception, and
-    // the ingress stays columnar without a report.
+    // is named Field"; an auto-property that hides one of the same type does not break that rule,
+    // and the hidden base auto-property is reported by the base-class rule instead.
     [TestMethod]
     [DoNotParallelize]
     public void RowModeHiddenMemberRule()
@@ -389,7 +417,52 @@ public sealed class PageClaimTests
 
             reports.Clear();
             new[] { StreamEvent.CreateInterval(1, 5, new HidesPropertyOfSameType()) }.ToObservable().ToStreamable();
+            Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
+            Assert.AreEqual(RowModeReason.TypeNotColumnar, reports[0].Reason);
+            Assert.AreEqual("property Property of base class HiddenBase has no column", reports[0].Detail);
+        }
+        finally
+        {
+            Config.RowModeReporter = null;
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
+    // row-mode.md: a private field that a base class declares reports "field secret of base class
+    // KeepsPrivateState has no column"; as the page's opening says, row mode gives the same results
+    // as the default mode for it; and the nearest base class is checked first.
+    [TestMethod]
+    [DoNotParallelize]
+    public void RowModeBaseClassStateRule()
+    {
+        var reports = new List<RowModeReport>();
+        string RoundTrip(bool forceRowMode)
+        {
+            Config.ForceRowBasedExecution = forceRowMode;
+            var payload = new InheritsPrivateState { Key = "k" };
+            payload.SetSecret(42);
+            return string.Join(",", new[] { StreamEvent.CreateInterval(1, 5, payload) }.ToObservable().ToStreamable()
+                .ToStreamEventObservable().Where(e => e.IsData).Select(e => e.Payload.Key + "/" + e.Payload.Secret).ToEnumerable());
+        }
+
+        try
+        {
+            Config.RowModeReporter = reports.Add;
+            Assert.AreEqual("k/42", RoundTrip(forceRowMode: true));
             Assert.AreEqual(0, reports.Count, string.Join("\n", reports));
+
+            Assert.AreEqual("k/42", RoundTrip(forceRowMode: false));
+            Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
+            Assert.AreEqual(RowModeReason.TypeNotColumnar, reports[0].Reason);
+            Assert.AreEqual(typeof(InheritsPrivateState), reports[0].NonColumnarType);
+            Assert.AreEqual("field secret of base class KeepsPrivateState has no column", reports[0].Detail);
+
+            // The nearest base class is checked first: its hidden auto-property is reported, not the
+            // private field one class further up.
+            reports.Clear();
+            new[] { StreamEvent.CreateInterval(1, 5, new HidesNameOfSameType()) }.ToObservable().ToStreamable();
+            Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
+            Assert.AreEqual("property Name of base class AddsNameProperty has no column", reports[0].Detail);
         }
         finally
         {
