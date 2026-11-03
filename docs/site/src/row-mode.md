@@ -62,10 +62,11 @@ For `TypeNotColumnar`, `Detail` names the first rule the type breaks. Trill stop
 | `property X has no setter` | A get-only auto-property. |
 | `property X is not public` | An auto-property whose getter or setter is not public. |
 | `property X has an init-only setter` | A `{ get; init; }` property. A C# positional record stops here. |
+| `more than one member is named X` | A class that uses `new` to hide an inherited public field or auto-property. One exception: an auto-property that hides an auto-property of the same type, because reflection then returns only the derived property. |
 | `the type is abstract or an interface` | A class that is abstract, or an interface. |
 | `the type has no public parameterless constructor` | A class that Trill cannot create. |
 
-A struct skips the last two rules. For types other than anonymous types, columnar mode requires a public type that keeps its state in public, settable fields and auto-properties. A class must also be concrete and have a public parameterless constructor.
+A struct skips the last two rules. For types other than anonymous types, columnar mode requires a public type that keeps its state in public, settable fields and auto-properties, no two with the same name. A class must also be concrete and have a public parameterless constructor.
 
 ## When the hook is called
 

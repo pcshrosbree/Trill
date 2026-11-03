@@ -118,6 +118,25 @@ public sealed class InitThenGetOnly
     public int Second { get; }
 }
 
+/// <summary>row-mode.md's hidden-member rule: a base class whose field and auto-property get hidden.</summary>
+public class HiddenBase
+{
+    public string Field;
+    public string Property { get; set; }
+}
+
+/// <summary>Hides the base field with <c>new</c>: reflection returns both fields.</summary>
+public sealed class HidesField : HiddenBase
+{
+    public new long Field;
+}
+
+/// <summary>Hides the base auto-property with one of the same type: reflection returns only this one.</summary>
+public sealed class HidesPropertyOfSameType : HiddenBase
+{
+    public new string Property { get; set; }
+}
+
 /// <summary>row-mode.md's example payload: its read-only field keeps it out of columnar mode.</summary>
 public sealed class Reading
 {
@@ -342,6 +361,34 @@ public sealed class PageClaimTests
             reports.Clear();
             Config.ForceRowBasedExecution = true;
             source.ToStreamable().AlterEventDuration(2);
+            Assert.AreEqual(0, reports.Count, string.Join("\n", reports));
+        }
+        finally
+        {
+            Config.RowModeReporter = null;
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
+    // row-mode.md: a class that hides an inherited field with new reports "more than one member
+    // is named Field"; an auto-property that hides one of the same type is the exception, and
+    // the ingress stays columnar without a report.
+    [TestMethod]
+    [DoNotParallelize]
+    public void RowModeHiddenMemberRule()
+    {
+        var reports = new List<RowModeReport>();
+        try
+        {
+            Config.RowModeReporter = reports.Add;
+            Config.ForceRowBasedExecution = false;
+            new[] { StreamEvent.CreateInterval(1, 5, new HidesField()) }.ToObservable().ToStreamable();
+            Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
+            Assert.AreEqual(RowModeReason.TypeNotColumnar, reports[0].Reason);
+            Assert.AreEqual("more than one member is named Field", reports[0].Detail);
+
+            reports.Clear();
+            new[] { StreamEvent.CreateInterval(1, 5, new HidesPropertyOfSameType()) }.ToObservable().ToStreamable();
             Assert.AreEqual(0, reports.Count, string.Join("\n", reports));
         }
         finally
