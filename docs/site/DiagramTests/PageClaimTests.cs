@@ -847,38 +847,25 @@ public sealed class PageClaimTests
         }
     }
 
-    // session-timeout-window.md, known issue: a timeout of 0 is not refused. In row mode with no grouping key
-    // the output is empty; inside GroupApply, and in columnar mode, every event comes out and ends as it
-    // starts. This pins the engine defect as it is
-    // today: when it is fixed, this test fails, and session-timeout-window.md's known-issue paragraph (and
-    // this test) must be updated.
+    // session-timeout-window.md: the timeout must be positive, and maxDuration must be greater than the timeout;
+    // other values throw an ArgumentException naming the parameter when SessionTimeoutWindow is called, before
+    // the query runs. A maxDuration of 0 or less sets no limit and stands for StreamEvent.InfinitySyncTime.
     [TestMethod]
-    [DoNotParallelize]
-    public void SessionKnownIssueZeroTimeout()
+    public void SessionRefusesATimeoutOfZero()
     {
-        // Row mode with no grouping key, as the diagrams run: no output at all.
-        Assert.AreEqual("", Show(Operators.Collect(Ticks().SessionTimeoutWindow(0))));
+        Assert.AreEqual("timeout", Assert.ThrowsExactly<ArgumentException>(() => Ticks().SessionTimeoutWindow(0)).ParamName);
+        Assert.AreEqual("timeout", Assert.ThrowsExactly<ArgumentException>(() => Ticks().SessionTimeoutWindow(-1)).ParamName);
+        Assert.AreEqual("maxDuration", Assert.ThrowsExactly<ArgumentException>(() => Ticks().SessionTimeoutWindow(3, 3)).ParamName);
+        Assert.AreEqual("maxDuration", Assert.ThrowsExactly<ArgumentException>(() => Ticks().SessionTimeoutWindow(3, 2)).ParamName);
+        Assert.AreEqual("maxDuration", Assert.ThrowsExactly<ArgumentException>(() => Ticks().SessionTimeoutWindow(StreamEvent.InfinitySyncTime)).ParamName);
 
-        // Row mode inside GroupApply: every event comes out, and each one ends as it starts.
-        var grouped = Operators.Collect(Ticks().GroupApply(e => e.Key, g => g.SessionTimeoutWindow(0), (g, e) => e));
-        var groupedEnds = grouped.Where(e => e.Kind == "End").ToList();
-        Assert.AreEqual(5, groupedEnds.Count, string.Join(" ", grouped));
-        Assert.IsTrue(groupedEnds.All(e => e.End == e.Start), string.Join(" ", grouped));
-
-        // Columnar mode: every event comes out, and each one ends as it starts.
-        var input = Operators.All.Single(e => e.Id == "average").DefaultInputs[0];
-        try
-        {
-            Config.ForceRowBasedExecution = false;
-            var columnar = Operators.Collect(Operators.Ingress(input).SessionTimeoutWindow(0));
-            var ends = columnar.Where(e => e.Kind == "End").ToList();
-            Assert.AreEqual(5, ends.Count, string.Join(" ", columnar));
-            Assert.IsTrue(ends.All(e => e.End == e.Start), string.Join(" ", columnar));
-        }
-        finally
-        {
-            Config.ForceRowBasedExecution = true;
-        }
+        // Events at every tick from 1 to 9: with no limit they all end at 12, while a maxDuration of 4 would cut
+        // the first seven at 8.
+        var fromOne = In(Enumerable.Range(1, 9).Select(t => Tick(t, "a", t)).ToArray());
+        var unlimited = Show(Operators.Collect(fromOne.SessionTimeoutWindow(3)));
+        Assert.AreEqual("Interval[1,12)a:1 Interval[2,12)a:2 Interval[3,12)a:3 Interval[4,12)a:4 Interval[5,12)a:5 Interval[6,12)a:6 Interval[7,12)a:7 Interval[8,12)a:8 Interval[9,12)a:9", unlimited);
+        Assert.AreEqual(unlimited, Show(Operators.Collect(fromOne.SessionTimeoutWindow(3, 0))));
+        Assert.AreEqual(unlimited, Show(Operators.Collect(fromOne.SessionTimeoutWindow(3, -5))));
     }
 
     // point-at-end.md: an event that never ends gives nothing; one sent as a start edge and an end edge gives
