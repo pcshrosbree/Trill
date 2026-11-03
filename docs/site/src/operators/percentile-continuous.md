@@ -4,7 +4,7 @@ Computes a percentile of a value over the events alive at each moment, interpola
 
 <div class="trill-marbles" data-op="percentile-continuous"></div>
 
-The percentiles are aggregates of the window only, with no shorthand on the stream, so they are used inside [`Aggregate`](aggregate.md): `Aggregate(w => w.PercentileContinuous(percentile, selector))`. The percentile is a number from 0 to 1, such as 0.5 for the median. The selector returns a `double`. A percentile outside 0 to 1 throws an `ArgumentException` when the query is built.
+The stream has a shorthand for each percentile: `PercentileContinuous(percentile, selector)` is the same as `Aggregate(w => w.PercentileContinuous(percentile, selector))`, and likewise for `PercentileDiscrete`. To compute several aggregates together, as the diagram does with both percentiles, use them inside [`Aggregate`](aggregate.md). The percentile is a number from 0 to 1, such as 0.5 for the median. The selector returns a `double`. A percentile outside 0 to 1 throws an `ArgumentException` when the query is built.
 
 There are two definitions. For `n` values in increasing order:
 

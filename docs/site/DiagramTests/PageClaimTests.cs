@@ -802,6 +802,19 @@ public sealed class PageClaimTests
                 w => w.PercentileContinuous(0.25, e => e.Value), w => w.PercentileDiscrete(0.25, e => e.Value),
                 (c, d) => new Out(null, c + " " + d)))));
 
+    // percentile-continuous.md: on the stream, PercentileContinuous and PercentileDiscrete are shorthands for
+    // Aggregate with the window aggregate.
+    [TestMethod]
+    public void PercentileShorthandsOnTheStream()
+    {
+        var input = Ticks().TumblingWindowLifetime(5);
+        static string Values(IStreamable<Empty, double> query) => Show(Operators.Collect(query.Select(v => new Out(null, v.ToString(System.Globalization.CultureInfo.InvariantCulture)))));
+        Assert.AreEqual("Interval[5,10)2 Interval[10,15)4.5", Values(input.PercentileContinuous(0.5, e => e.Value)));
+        Assert.AreEqual(Values(input.Aggregate(w => w.PercentileContinuous(0.5, e => e.Value))), Values(input.PercentileContinuous(0.5, e => e.Value)));
+        Assert.AreEqual("Interval[5,10)2 Interval[10,15)4", Values(input.PercentileDiscrete(0.5, e => e.Value)));
+        Assert.AreEqual(Values(input.Aggregate(w => w.PercentileDiscrete(0.5, e => e.Value))), Values(input.PercentileDiscrete(0.5, e => e.Value)));
+    }
+
     // percentile-continuous.md: a comparison that reverses the order makes the percentile count from the
     // largest value, so 0.25 under it is 0.75 without it; a percentile outside 0 to 1 throws when the query is built.
     [TestMethod]
