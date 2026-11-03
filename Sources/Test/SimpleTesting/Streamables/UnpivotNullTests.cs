@@ -364,6 +364,25 @@ namespace SimpleTesting
             CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10", "1:a:Low=Int32 1" }, Events(result, r => ShowValue(r.Key, r.Attribute, r.Value)));
         }
 
+        // A nullable member's value is boxed into a value field of an interface type, and a null one is skipped.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotNullableFieldsToInterfaceValue()
+        {
+            var result = Input(v => new UnpivotNullNullableFields { Key = "a", Low = null, High = v * 10 })
+                .Unpivot(() => new UnpivotNullComparableRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10" }, Events(result, r => ShowValue(r.Key, r.Attribute, r.Value)));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotNullablePropertiesToInterfaceValue()
+        {
+            var result = Input(v => new UnpivotNullNullableProperties { Key = "a", Low = null, High = v * 10 })
+                .Unpivot(() => new UnpivotNullComparableRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=Int32 10" }, Events(result, r => ShowValue(r.Key, r.Attribute, r.Value)));
+        }
+
         private static string ShowObject(UnpivotNullObjectRow r) => ShowValue(r.Key, r.Attribute, r.Value);
 
         // Names the value's runtime type, so a value stored without boxing fails here rather than passing as a number.
