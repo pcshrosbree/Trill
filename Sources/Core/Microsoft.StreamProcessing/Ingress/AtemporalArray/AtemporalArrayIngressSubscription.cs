@@ -132,8 +132,8 @@ namespace Microsoft.StreamProcessing
                 {
                     var current = StreamEvent.CreatePunctuation<TPayload>(this.currentTime);
                     System.Array.Clear(this.currentBatch.hash.col, 0, this.currentBatch.hash.col.Length);
+                    if (full) FlushContents();
                     OnPunctuation(current);
-                    offset++;
                 }
                 else if (full)
                 {
