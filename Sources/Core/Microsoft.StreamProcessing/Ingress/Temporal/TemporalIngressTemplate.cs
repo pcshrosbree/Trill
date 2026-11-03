@@ -840,7 +840,7 @@ this.Write(";\r\n");
     { 
      if (this.resultMightBeNull)
         { 
-this.Write("    if (");
+this.Write("    if ((object)");
 
 this.Write(this.ToStringHelper.ToStringWithCulture(valueString));
 

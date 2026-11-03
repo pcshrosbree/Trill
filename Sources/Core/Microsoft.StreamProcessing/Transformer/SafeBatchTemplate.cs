@@ -301,7 +301,7 @@ if (f.Type == this.payloadType) {
                     "0; i < value.Count; i++) {\r\n            var payload = value.payload.col[i];\r\n   " +
                     "         ");
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n              this._nullnessvector.col[i >> 6" +
+            this.Write("            if ((object)payload == null) {\r\n              this._nullnessvector.col[i >> 6" +
                     "] |= (1L << (i & 0x3f));\r\n              continue;\r\n            }\r\n            ");
  } 
             this.Write("            ");
@@ -388,7 +388,7 @@ if (f.Type == this.payloadType) {
  } 
             this.Write("\r\n    // Payload Fields\r\n");
  if (this.payloadMightBeNull) { 
-            this.Write("    if (payload == null) {\r\n        this._nullnessvector.col[base.Count >> 6] |= " +
+            this.Write("    if ((object)payload == null) {\r\n        this._nullnessvector.col[base.Count >> 6] |= " +
                     "(1L << (base.Count & 0x3f));\r\n        goto CallBase;\r\n    }\r\n");
  } 
 
@@ -514,7 +514,7 @@ if (f.Type == this.payloadType) {
             this.Write("            this.payload.col[count] = payload;\r\n");
  } else { 
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n                this._nullnessvector.col[coun" +
+            this.Write("            if ((object)payload == null) {\r\n                this._nullnessvector.col[coun" +
                     "t >> 6] |= (1L << (count & 0x3f));\r\n                goto BottomOfLoop;\r\n        " +
                     "    }\r\n");
  } 
@@ -629,7 +629,7 @@ if (f.Type == this.payloadType) {
             this.Write("            this.payload.col[count] = payload;\r\n");
  } else { 
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n                this._nullnessvector.col[coun" +
+            this.Write("            if ((object)payload == null) {\r\n                this._nullnessvector.col[coun" +
                     "t >> 6] |= (1L << (count & 0x3f));\r\n                goto BottomOfLoop;\r\n        " +
                     "    }\r\n");
  } 
@@ -755,7 +755,7 @@ if (f.Type == this.payloadType) {
             this.Write("            this.payload.col[count] = payload;\r\n");
  } else { 
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n                this._nullnessvector.col[coun" +
+            this.Write("            if ((object)payload == null) {\r\n                this._nullnessvector.col[coun" +
                     "t >> 6] |= (1L << (count & 0x3f));\r\n                goto BottomOfLoop;\r\n        " +
                     "    }\r\n");
  } 
@@ -876,7 +876,7 @@ if (f.Type == this.payloadType) {
             this.Write("            this.payload.col[count] = payload;\r\n");
  } else { 
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n                this._nullnessvector.col[coun" +
+            this.Write("            if ((object)payload == null) {\r\n                this._nullnessvector.col[coun" +
                     "t >> 6] |= (1L << (count & 0x3f));\r\n                goto BottomOfLoop;\r\n        " +
                     "    }\r\n");
  } 
@@ -999,7 +999,7 @@ if (f.Type == this.payloadType) {
             this.Write("            this.payload.col[count] = payload;\r\n");
  } else { 
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n                this._nullnessvector.col[coun" +
+            this.Write("            if ((object)payload == null) {\r\n                this._nullnessvector.col[coun" +
                     "t >> 6] |= (1L << (count & 0x3f));\r\n                goto BottomOfLoop;\r\n        " +
                     "    }\r\n");
  } 
@@ -1108,7 +1108,7 @@ if (f.Type == this.payloadType) {
             this.Write("            this.payload.col[count] = payload;\r\n");
  } else { 
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n                this._nullnessvector.col[coun" +
+            this.Write("            if ((object)payload == null) {\r\n                this._nullnessvector.col[coun" +
                     "t >> 6] |= (1L << (count & 0x3f));\r\n                goto BottomOfLoop;\r\n        " +
                     "    }\r\n");
  } 
@@ -1222,7 +1222,7 @@ if (f.Type == this.payloadType) {
             this.Write("            this.payload.col[count] = payload;\r\n");
  } else { 
  if (this.payloadMightBeNull) { 
-            this.Write("            if (payload == null) {\r\n                this._nullnessvector.col[coun" +
+            this.Write("            if ((object)payload == null) {\r\n                this._nullnessvector.col[coun" +
                     "t >> 6] |= (1L << (count & 0x3f));\r\n                goto BottomOfLoop;\r\n        " +
                     "    }\r\n");
  } 
@@ -1378,7 +1378,7 @@ if (f.Type == this.payloadType) {
  } 
             this.Write("\r\n    }\r\n    set\r\n    {\r\n        ");
  if (this.payloadMightBeNull) { 
-            this.Write("\r\n        if (value == null) {\r\n            this._nullnessvector.col[index >> 6] " +
+            this.Write("\r\n        if ((object)value == null) {\r\n            this._nullnessvector.col[index >> 6] " +
                     "|= (1L << (index & 0x3f));\r\n            return;\r\n        }\r\n        ");
  } 
             this.Write("        ");

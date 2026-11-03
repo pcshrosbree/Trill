@@ -224,7 +224,7 @@ if (f.Type == this.payloadType) {
         for (int i = 0; i < value.Count; i++) {
             var payload = value.payload.col[i];
             <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
               this._nullnessvector.col[i >> 6] |= (1L << (i & 0x3f));
               continue;
             }
@@ -285,7 +285,7 @@ if (f.Type == this.payloadType) {
 
     // Payload Fields
 <# if (this.payloadMightBeNull) { #>
-    if (payload == null) {
+    if ((object)payload == null) {
         this._nullnessvector.col[base.Count >> 6] |= (1L << (base.Count & 0x3f));
         goto CallBase;
     }
@@ -381,7 +381,7 @@ if (f.Type == this.payloadType) {
             this.payload.col[count] = payload;
 <# } else { #>
 <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
                 this._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
                 goto BottomOfLoop;
             }
@@ -470,7 +470,7 @@ if (f.Type == this.payloadType) {
             this.payload.col[count] = payload;
 <# } else { #>
 <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
                 this._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
                 goto BottomOfLoop;
             }
@@ -563,7 +563,7 @@ if (f.Type == this.payloadType) {
             this.payload.col[count] = payload;
 <# } else { #>
 <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
                 this._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
                 goto BottomOfLoop;
             }
@@ -656,7 +656,7 @@ if (f.Type == this.payloadType) {
             this.payload.col[count] = payload;
 <# } else { #>
 <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
                 this._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
                 goto BottomOfLoop;
             }
@@ -750,7 +750,7 @@ if (f.Type == this.payloadType) {
             this.payload.col[count] = payload;
 <# } else { #>
 <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
                 this._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
                 goto BottomOfLoop;
             }
@@ -832,7 +832,7 @@ if (f.Type == this.payloadType) {
             this.payload.col[count] = payload;
 <# } else { #>
 <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
                 this._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
                 goto BottomOfLoop;
             }
@@ -918,7 +918,7 @@ if (f.Type == this.payloadType) {
             this.payload.col[count] = payload;
 <# } else { #>
 <# if (this.payloadMightBeNull) { #>
-            if (payload == null) {
+            if ((object)payload == null) {
                 this._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
                 goto BottomOfLoop;
             }
@@ -1044,7 +1044,7 @@ public override <#= TPAYLOAD #> this[int index]
     {
         <# if (this.payloadMightBeNull) { #>
 
-        if (value == null) {
+        if ((object)value == null) {
             this._nullnessvector.col[index >> 6] |= (1L << (index & 0x3f));
             return;
         }

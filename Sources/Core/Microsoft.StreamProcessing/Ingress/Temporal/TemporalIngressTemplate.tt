@@ -715,7 +715,7 @@ private void AddToGeneratedBatch()
     { #>
 <#+     if (this.resultMightBeNull)
         { #>
-    if (<#= valueString #> == null)
+    if ((object)<#= valueString #> == null)
     {
         generatedBatch._nullnessvector.col[count >> 6] |= (1L << (count & 0x3f));
     }
