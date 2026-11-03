@@ -974,10 +974,10 @@ public sealed class PageClaimTests
     }
 
     // percentile-continuous.md: when p × n would be a whole number without rounding, rounding error does not move
-    // PercentileDiscrete's position, for any position up to 2^31 − 1; 0.07 × 100 is 7.000000000000001 in double
+    // PercentileDiscrete's position, for any position up to 2^50; 0.07 × 100 is 7.000000000000001 in double
     // arithmetic, and 0.07 over the values 1 to 100 still gives 7. The tolerance also takes 0.5 + 2^-52 over two
     // values, whose product is exactly 1 + 2^-51, as 1, so it gives the 1st value. The test does not cover the
-    // limit at 2^31 − 1, which is impractical for this end-to-end test.
+    // limit at 2^50, which is impractical for this end-to-end test.
     [TestMethod]
     public void PercentileDiscreteIgnoresRoundingError()
     {
