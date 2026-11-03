@@ -142,8 +142,15 @@ namespace Microsoft.StreamProcessing
 
             // Case: projection is (e_1, e_2, ..., e_n) => new T{ f1 = ..., f2 = ..., ... }), i.e., T is *not* an anonymous type
             // TODO: See if this can be unified with the code above for anonymous types.
-            if (body is MemberInitExpression && !this.resultTypeInformation.noFields)
+            if (body is MemberInitExpression memberInit && !this.resultTypeInformation.noFields)
             {
+                // No column can hold what a constructor does with its arguments.
+                if (memberInit.NewExpression.Arguments.Count > 0)
+                {
+                    this.error = true;
+                    return;
+                }
+
                 Visit(body);
                 return;
             }
