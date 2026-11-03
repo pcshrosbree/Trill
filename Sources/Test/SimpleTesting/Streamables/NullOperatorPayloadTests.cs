@@ -138,16 +138,10 @@ namespace SimpleTesting
             => Check(NullOperatorPayloadTestsBase.Segment(NullOperatorPayloadTestsBase.Readings())
                 .ToPartitionedArrayStreamable(r => r.Value % 2, r => r.Time, r => r.Time + 10));
 
-        // This ingress emits only full batches, so the batch holds exactly the two events.
         [TestMethod, TestCategory("Gated")]
         public void PartitionedArrayIngressOfStreamEvents()
-        {
-            using (new ConfigModifier().DataBatchSize(2).Modify())
-            {
-                Check(NullOperatorPayloadTestsBase.Segment(NullOperatorPayloadTestsBase.Readings()
-                    .Select(r => PartitionedStreamEvent.CreatePoint(0, r.Time, r))).ToStreamable());
-            }
-        }
+            => Check(NullOperatorPayloadTestsBase.Segment(NullOperatorPayloadTestsBase.Readings()
+                .Select(r => PartitionedStreamEvent.CreatePoint(0, r.Time, r))).ToStreamable());
 
         private static void Check(IStreamable<PartitionKey<int>, NullOperatorReading> query)
             => NullOperatorPayloadTestsBase.Check(

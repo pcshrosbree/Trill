@@ -327,7 +327,11 @@ namespace Microsoft.StreamProcessing
 
         protected override void OnCompleted(long punctuationTime)
         {
-            OnNext(new ArraySegment<PartitionedStreamEvent<TKey, TPayload>>(new[] { PartitionedStreamEvent.CreateLowWatermark<TKey, TPayload>(punctuationTime) }));
+            var count = this.currentBatch.Count;
+            this.currentBatch.AddLowWatermark(punctuationTime);
+            this.currentBatch.bitvector.col[count >> 6] |= 1L << (count & 0x3f);
+            Array.Clear(this.currentBatch.hash.col, 0, this.currentBatch.hash.col.Length);
+            OnFlush();
         }
     }
 
