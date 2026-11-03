@@ -39,6 +39,39 @@ namespace SimpleTesting
         public int? High { get; set; }
     }
 
+    public sealed class UnpivotNullSingleInt
+    {
+        public string Key;
+        public int Only;
+    }
+
+    public class UnpivotNullHiddenPropertyBase
+    {
+        public string Hidden { get; set; }
+    }
+
+    // Hides the base class's Hidden property with one of another type. Neither fits an int value field.
+    public sealed class UnpivotNullHiddenProperty : UnpivotNullHiddenPropertyBase
+    {
+        public string Key;
+        public int Only;
+
+        public new long Hidden { get; set; }
+    }
+
+    public class UnpivotNullHiddenFieldBase
+    {
+        public string Hidden;
+    }
+
+    // Hides the base class's Hidden field with one of another type. Neither fits an int value field.
+    public sealed class UnpivotNullHiddenField : UnpivotNullHiddenFieldBase
+    {
+        public string Key;
+        public int Only;
+        public new long Hidden;
+    }
+
     public sealed class UnpivotNullStrings
     {
         public string Key;
@@ -113,7 +146,65 @@ namespace SimpleTesting
 
     public abstract class UnpivotNullTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
     {
-        internal UnpivotNullTestsBase(ConfigModifier modifier) : base(modifier) { }
+        // When set, an AlterEventLifetime that keeps each lifetime sits between ingress and Unpivot, so the
+        // SelectMany that Unpivot builds is not fused into the ingress operator and gets its own pipe.
+        private readonly bool afterIngress;
+
+        // When set, every query must run columnar. A code generation failure cached by an earlier query that was
+        // allowed to fall back is reused without an exception, even with fallback disabled; this check catches
+        // such a query, which would otherwise run in row mode and pass.
+        private readonly bool requireColumnar;
+
+        internal UnpivotNullTestsBase(ConfigModifier modifier, bool afterIngress = false, bool requireColumnar = false)
+            : base(modifier)
+        {
+            this.afterIngress = afterIngress;
+            this.requireColumnar = requireColumnar;
+        }
+
+        // Unpivot runs in columnar mode unless the configuration forces row mode.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotRunsColumnarUnlessForcedToRows()
+        {
+            var result = Input(v => new UnpivotNullNullableFields { Key = "a", Low = v, High = v * 10 })
+                .Unpivot(() => new UnpivotNullIntRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            Assert.AreEqual(!Config.ForceRowBasedExecution, result.Properties.IsColumnar);
+        }
+
+        // Two queries with the same types that differ only in their key selector each keep their own key, so
+        // generated code made for one is not reused for the other.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotQueriesThatDifferOnlyInTheirKeyKeepTheirOwnKeys()
+        {
+            var plain = Input(v => new UnpivotNullIntFields { Key = "a", Low = v, High = v * 10 })
+                .Unpivot(() => new UnpivotNullIntRow(), p => p.Key, r => r.Attribute, r => r.Value);
+            var computed = Input(v => new UnpivotNullIntFields { Key = "a", Low = v, High = v * 10 })
+                .Unpivot(() => new UnpivotNullIntRow(), p => p.Key + "!", r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:High=10", "1:a:Low=1" }, Events(plain, r => r.Key + ":" + r.Attribute + "=" + r.Value));
+            CollectionAssert.AreEqual(new[] { "1:a!:High=10", "1:a!:Low=1" }, Events(computed, r => r.Key + ":" + r.Attribute + "=" + r.Value));
+        }
+
+        // A single member that cannot be null gives exactly one output event for each input event.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotSingleIntField()
+        {
+            var result = Input(v => new UnpivotNullSingleInt { Key = "a", Only = v })
+                .Unpivot(() => new UnpivotNullIntRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "1:a:Only=1" }, Events(result, r => r.Key + ":" + r.Attribute + "=" + r.Value));
+        }
+
+        // An input with no member that fits the value field gives no output.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotNoFittingMember()
+        {
+            var result = Input(v => new UnpivotNullStrings { Key = "a", First = "x", Second = "y" })
+                .Unpivot(() => new UnpivotNullIntRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(Array.Empty<string>(), Events(result, r => r.Key + ":" + r.Attribute + "=" + r.Value));
+        }
 
         // A non-nullable value-type member is never null, so each one becomes an output event.
         [TestMethod, TestCategory("Gated")]
@@ -279,17 +370,23 @@ namespace SimpleTesting
         private static string ShowValue(string key, string attribute, object value)
             => key + ":" + attribute + "=" + (value == null ? "null" : value.GetType().Name + " " + value);
 
-        private static IStreamable<Empty, T> Input<T>(Func<int, T> make)
-            => new[] { StreamEvent.CreateInterval(1, 5, make(1)) }.ToObservable().ToStreamable();
-
-        private static List<string> Events<T>(IStreamable<Empty, T> result, Func<T, string> show)
-            => result
+        private List<string> Events<T>(IStreamable<Empty, T> result, Func<T, string> show)
+        {
+            if (this.requireColumnar) Assert.IsTrue(result.Properties.IsColumnar, "The query runs in row mode.");
+            return result
                 .ToStreamEventObservable()
                 .Where(e => e.IsData)
                 .Select(e => e.StartTime + ":" + show(e.Payload))
                 .ToEnumerable()
                 .OrderBy(s => s, StringComparer.Ordinal)
                 .ToList();
+        }
+
+        private IStreamable<Empty, T> Input<T>(Func<int, T> make)
+        {
+            var input = new[] { StreamEvent.CreateInterval(1, 5, make(1)) }.ToObservable().ToStreamable();
+            return this.afterIngress ? input.AlterEventLifetime(t => t, 4) : input;
+        }
     }
 
     [TestClass]
@@ -299,12 +396,67 @@ namespace SimpleTesting
             : base(new ConfigModifier().ForceRowBasedExecution(true).DontFallBackToRowBasedExecution(true)) { }
     }
 
-    // Unpivot's SelectMany captures a delegate, which columnar code generation cannot compile, so a
-    // columnar query falls back to row execution. This class runs the default settings, which allow that.
     [TestClass]
     public class UnpivotNullTestsDefault : UnpivotNullTestsBase
     {
         public UnpivotNullTestsDefault()
             : base(new ConfigModifier().ForceRowBasedExecution(false).DontFallBackToRowBasedExecution(false)) { }
+    }
+
+    // Columnar, with the SelectMany fused into the ingress operator. A code generation failure throws, and every
+    // query must run columnar.
+    [TestClass]
+    public class UnpivotNullTestsColumnar : UnpivotNullTestsBase
+    {
+        public UnpivotNullTestsColumnar()
+            : base(new ConfigModifier().ForceRowBasedExecution(false).DontFallBackToRowBasedExecution(true), requireColumnar: true) { }
+    }
+
+    // Columnar, with the SelectMany in its own pipe after ingress. A code generation failure throws, and every
+    // query must run columnar.
+    [TestClass]
+    public class UnpivotNullTestsColumnarAfterIngress : UnpivotNullTestsBase
+    {
+        public UnpivotNullTestsColumnarAfterIngress()
+            : base(new ConfigModifier().ForceRowBasedExecution(false).DontFallBackToRowBasedExecution(true), afterIngress: true, requireColumnar: true) { }
+    }
+
+    // Input types that hide a base member with new. These run in row mode only: columnar ingress throws
+    // ArgumentException for these two input types, because their column layout would hold two members named Hidden.
+    [TestClass]
+    public class UnpivotHiddenMemberTests : TestWithConfigSettingsAndMemoryLeakDetection
+    {
+        public UnpivotHiddenMemberTests()
+            : base(new ConfigModifier().ForceRowBasedExecution(true).DontFallBackToRowBasedExecution(true)) { }
+
+        // A property hidden with new, whose types do not fit the value field, is ignored rather than looked up by name.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotIgnoresHiddenPropertiesThatDoNotFit()
+        {
+            var result = new[] { StreamEvent.CreateInterval(1, 5, new UnpivotNullHiddenProperty { Key = "a", Only = 1, Hidden = 2 }) }
+                .ToObservable().ToStreamable()
+                .Unpivot(() => new UnpivotNullIntRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "a:Only=1" }, Rows(result));
+        }
+
+        // A field hidden with new, whose types do not fit the value field, is ignored rather than looked up by name.
+        [TestMethod, TestCategory("Gated")]
+        public void UnpivotIgnoresHiddenFieldsThatDoNotFit()
+        {
+            var result = new[] { StreamEvent.CreateInterval(1, 5, new UnpivotNullHiddenField { Key = "a", Only = 1, Hidden = 2 }) }
+                .ToObservable().ToStreamable()
+                .Unpivot(() => new UnpivotNullIntRow(), p => p.Key, r => r.Attribute, r => r.Value);
+
+            CollectionAssert.AreEqual(new[] { "a:Only=1" }, Rows(result));
+        }
+
+        private static List<string> Rows(IStreamable<Empty, UnpivotNullIntRow> result)
+            => result
+                .ToStreamEventObservable()
+                .Where(e => e.IsData)
+                .Select(e => e.Payload.Key + ":" + e.Payload.Attribute + "=" + e.Payload.Value)
+                .ToEnumerable()
+                .ToList();
     }
 }

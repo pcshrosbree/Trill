@@ -197,21 +197,21 @@ namespace Microsoft.StreamProcessing
             if (!(attributeSelector.Body is MemberExpression attributeField)) throw new ArgumentException("Attribute selector expression must refer to a single field in the return type.");
             if (!(valueSelector.Body is MemberExpression valueField)) throw new ArgumentException("Value selector expression must refer to a single field in the return type.");
 
-            Func<TInput, IEnumerable<TResult>> selector = new UnpivotEnumerable<TInput, TPivotKey, TValue, TResult>(keySelector, newExpression, attributeField, valueField).GetEnumerable;
-            var selectMany = inputStreamable.SelectMany(e => selector(e));
-            return selectMany;
+            return inputStreamable.SelectMany(UnpivotSelector<TInput, TPivotKey, TValue, TResult>.Create(keySelector, newExpression, attributeField, valueField));
         }
 
-        private sealed class UnpivotEnumerable<TInput, TPivotKey, TValue, TResult>
+        // Builds Unpivot's selector as one expression that adds no captured delegate of its own, so columnar code
+        // generation can write it as C#. (Expressions the caller passes in, such as the key selector, are kept as they
+        // are.) For each member that fits the value field, in the order properties by name, then fields by name, the
+        // selector yields one result unless the member is null.
+        private static class UnpivotSelector<TInput, TPivotKey, TValue, TResult>
         {
-            private readonly Dictionary<string, Func<TInput, string, TResult>> fields = new Dictionary<string, Func<TInput, string, TResult>>();
-            private readonly Dictionary<string, Func<TInput, bool>> isNull = new Dictionary<string, Func<TInput, bool>>();
-
-            public UnpivotEnumerable(Expression<Func<TInput, TPivotKey>> keySelector, NewExpression newExpression, MemberExpression attributeField, MemberExpression valueField)
+            public static Expression<Func<TInput, IEnumerable<TResult>>> Create(Expression<Func<TInput, TPivotKey>> keySelector, NewExpression newExpression, MemberExpression attributeField, MemberExpression valueField)
             {
                 var input = Expression.Parameter(typeof(TInput), "input");
-                var attribute = Expression.Parameter(typeof(string), "attribute");
                 var keyAssignments = new List<MemberAssignment>();
+                Expression body = null;
+                var alwaysPresent = new List<Expression>();
 
                 var keyFields = new HashSet<string>();
 
@@ -302,83 +302,68 @@ namespace Microsoft.StreamProcessing
                         }
                 }
 
-                keyAssignments.Add(Expression.Bind(attributeField.Member, attribute));
-                foreach (var field in typeof(TInput).GetTypeInfo().GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.GetIndexParameters().Length == 0).Where(o => !keyFields.Contains(o.Name)).OrderBy(o => o.Name))
+                var members = typeof(TInput).GetTypeInfo().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(p => p.GetIndexParameters().Length == 0).OrderBy(o => o.Name).Select(p => new { p.Name, Type = p.PropertyType })
+                    .Concat(typeof(TInput).GetTypeInfo().GetFields(BindingFlags.Public | BindingFlags.Instance).OrderBy(o => o.Name).Select(f => new { f.Name, Type = f.FieldType }))
+                    .Where(m => !keyFields.Contains(m.Name));
+                foreach (var m in members)
                 {
-                    if (IsNullable(field.PropertyType))
-                    {
-                        if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.PropertyType.GetTypeInfo().GetGenericArguments()[0])) continue;
-                        this.isNull.Add(
-                            field.Name, Expression.Lambda<Func<TInput, bool>>(
-                                Expression.IsFalse(Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "HasValue")),
-                                new[] { input }).Compile());
-                    }
-                    else
-                    {
-                        if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.PropertyType)) continue;
-                        this.isNull.Add(field.Name, IsNullTest(input, field.Name, field.PropertyType));
-                    }
+                    var name = m.Name;
+                    var type = m.Type;
+                    var nullable = IsNullable(type);
+                    if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(nullable ? type.GetTypeInfo().GetGenericArguments()[0] : type)) continue;
 
-                    var fieldAssignment = new[]
+                    // Only a member that fits is looked up by name. A type can hide a base member with new, and looking
+                    // up that name throws AmbiguousMatchException, so a member that does not fit must stay unresolved.
+                    var member = Expression.PropertyOrField(input, name);
+                    var isNull = nullable ? Expression.Not(Expression.PropertyOrField(member, "HasValue")) : IsNullTest(member);
+                    var value = nullable ? Expression.PropertyOrField(member, "Value") : member;
+
+                    var memberAssignments = new[]
                     {
-                        Expression.Bind(
-                            valueField.Member,
-                            ToValueType(
-                                IsNullable(field.PropertyType)
-                                    ? Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "Value")
-                                    : Expression.PropertyOrField(input, field.Name),
-                                valueField.Type))
+                        Expression.Bind(attributeField.Member, Expression.Constant(name)),
+                        Expression.Bind(valueField.Member, ToValueType(value, valueField.Type)),
                     };
-                    var constructor = Expression.MemberInit(newExpression, keyAssignments.Concat(fieldAssignment));
-                    var fieldResult = Expression.Lambda<Func<TInput, string, TResult>>(constructor, input, attribute);
-                    this.fields.Add(field.Name, fieldResult.Compile());
-                }
-                foreach (var field in typeof(TInput).GetTypeInfo().GetFields(BindingFlags.Public | BindingFlags.Instance).Where(o => !keyFields.Contains(o.Name)).OrderBy(o => o.Name))
-                {
-                    if (IsNullable(field.FieldType))
+                    var result = Expression.MemberInit(newExpression, keyAssignments.Concat(memberAssignments));
+                    if (isNull == null)
                     {
-                        if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.FieldType.GetTypeInfo().GetGenericArguments()[0])) continue;
-                        this.isNull.Add(
-                            field.Name, Expression.Lambda<Func<TInput, bool>>(
-                                Expression.IsFalse(Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "HasValue")),
-                                new[] { input }).Compile());
-                    }
-                    else
-                    {
-                        if (!typeof(TValue).GetTypeInfo().IsAssignableFrom(field.FieldType)) continue;
-                        this.isNull.Add(field.Name, IsNullTest(input, field.Name, field.FieldType));
+                        alwaysPresent.Add(result);
+                        continue;
                     }
 
-                    var fieldAssignment = new[]
-                    {
-                        Expression.Bind(
-                            valueField.Member,
-                            ToValueType(
-                                IsNullable(field.FieldType)
-                                    ? Expression.PropertyOrField(Expression.PropertyOrField(input, field.Name), "Value")
-                                    : Expression.PropertyOrField(input, field.Name),
-                                valueField.Type))
-                    };
-                    var constructor = Expression.MemberInit(newExpression, keyAssignments.Concat(fieldAssignment));
-                    var fieldResult = Expression.Lambda<Func<TInput, string, TResult>>(constructor, input, attribute);
-                    this.fields.Add(field.Name, fieldResult.Compile());
+                    body = Append(body, alwaysPresent);
+                    body = Append(body, Expression.Condition(isNull, Results(), Results(result)));
                 }
+
+                body = Append(body, alwaysPresent) ?? Results();
+                if (body.Type != typeof(IEnumerable<TResult>)) body = Expression.Convert(body, typeof(IEnumerable<TResult>));
+                return Expression.Lambda<Func<TInput, IEnumerable<TResult>>>(body, input);
             }
 
-            public IEnumerable<TResult> GetEnumerable(TInput obj)
+            // The selector is written out as C# by columnar code generation, which names no generic type arguments
+            // in method calls. So results are collected in arrays, and Enumerable.Concat infers its type argument
+            // from them.
+            private static Expression Results(params Expression[] results) => Expression.NewArrayInit(typeof(TResult), results);
+
+            private static Expression Append(Expression body, List<Expression> results)
             {
-                foreach (var att in this.fields) if (!this.isNull[att.Key](obj)) yield return att.Value(obj, att.Key);
+                if (results.Count == 0) return body;
+                var array = Results(results.ToArray());
+                results.Clear();
+                return Append(body, array);
             }
 
-            // The null test for a member that is not Nullable<T>. A value-type member is never null. A reference-type
-            // member is compared by reference, so a user-defined == operator cannot hide a value.
-            private static Func<TInput, bool> IsNullTest(ParameterExpression input, string memberName, Type memberType)
-            {
-                if (memberType.GetTypeInfo().IsValueType) return o => false;
-                return Expression.Lambda<Func<TInput, bool>>(
-                    Expression.ReferenceEqual(Expression.PropertyOrField(input, memberName), Expression.Constant(null)),
-                    new[] { input }).Compile();
-            }
+            private static Expression Append(Expression body, Expression results)
+                => body == null ? results : Expression.Call(typeof(Enumerable), nameof(Enumerable.Concat), new[] { typeof(TResult) }, body, results);
+
+            // The null test for a member that is not Nullable<T>, or null when the member can never be null. A
+            // value-type member is never null. A reference-type member is compared by reference, so a user-defined
+            // == operator cannot hide a value. The member is converted to object first so that the C# that columnar
+            // code generation writes, (object)member == null, also compares references.
+            private static Expression IsNullTest(MemberExpression member)
+                => member.Type.GetTypeInfo().IsValueType
+                    ? null
+                    : Expression.ReferenceEqual(Expression.Convert(member, typeof(object)), Expression.Constant(null));
 
             // Expression.Bind accepts a value-type expression for an object or interface member, but the compiled
             // assignment then stores the value without boxing it. The conversion boxes it.
