@@ -887,7 +887,7 @@ this.Write(";\r\n");
          }
         }
     }  
- if (this.resultMightBeNull)
+ if (this.resultMightBeNull && !resultRepresentation.noFields)
     {
         PopIndent(); 
 this.Write("    }\r\n");

@@ -735,7 +735,7 @@ private void AddToGeneratedBatch()
 <#+         }
         }
     }  #>
-<#+ if (this.resultMightBeNull)
+<#+ if (this.resultMightBeNull && !resultRepresentation.noFields)
     {
         PopIndent(); #>
     }
