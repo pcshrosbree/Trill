@@ -56,12 +56,16 @@ namespace Microsoft.StreamProcessing
 
         private void ReachTime(long timestamp)
         {
-            foreach (var pKey in this.orderedKeysDictionary.Keys) ReachTime(-1, timestamp, pKey);
+            foreach (var pKey in this.orderedKeysDictionary.Keys) ReachTime(timestamp, pKey);
         }
 
-        private void ReachTime(int pIndex, long timestamp, TPartitionKey pKey)
+        // Sets the cut point of the key's session from the time of a data event, if the session has none: either
+        // the key has no session (InfinitySyncTime), or its session was cut and this event continues it (MaxSyncTime).
+        // Called after ReachTime has closed the sessions due by the event's time, so the event that starts or
+        // continues a session sets that session's cut point.
+        private void SetCutPoint(int pIndex, long timestamp)
         {
-            if (pIndex != -1 && this.maximumDuration < StreamEvent.InfinitySyncTime)
+            if (this.maximumDuration < StreamEvent.InfinitySyncTime)
             {
                 if (this.windowEndTimeDictionary.entries[pIndex].value == StreamEvent.InfinitySyncTime)
                 {
@@ -70,10 +74,19 @@ namespace Microsoft.StreamProcessing
                 }
                 else if (this.windowEndTimeDictionary.entries[pIndex].value == StreamEvent.MaxSyncTime)
                 {
-                    this.windowEndTimeDictionary.entries[pIndex].value = timestamp - (timestamp % this.maximumDuration) + this.maximumDuration;
+                    // A session closed at its cut point before its timeout stays marked as continuing, even when a
+                    // punctuation or another key closed it. If its timeout has passed since its last event, this event
+                    // starts a new session instead.
+                    long mod = timestamp % this.maximumDuration;
+                    this.windowEndTimeDictionary.entries[pIndex].value = timestamp >= this.lastDataTimeDictionary.entries[pIndex].value + this.sessionTimeout
+                        ? timestamp - mod + ((mod == 0 ? 1 : 2) * this.maximumDuration)
+                        : timestamp - mod + this.maximumDuration;
                 }
             }
+        }
 
+        private void ReachTime(long timestamp, TPartitionKey pKey)
+        {
             var orderedKeys = this.orderedKeysDictionary[pKey];
             var current = orderedKeys.First;
             while (current != null)
@@ -138,18 +151,18 @@ namespace Microsoft.StreamProcessing
                         var partition = this.getPartitionKey(batch.key.col[i]);
                         if (vsync[i] > vother[i]) // We have an end edge
                         {
-                            ReachTime(-1, vsync[i], partition);
+                            ReachTime(vsync[i], partition);
                         }
                         else
                         {
-                            // Check to see if the key is already being tracked
+                            // Close the partition's sessions due to end by this event's time first, so that the
+                            // event that starts or continues the key's session sets its cut point
+                            if (this.orderedKeysDictionary.ContainsKey(partition)) ReachTime(vsync[i], partition);
+
+                            // Check to see if the key is being tracked: advancing time may have removed it
                             if (!this.lastDataTimeDictionary.Lookup(batch.key.col[i], out int keyIndex))
                                 keyIndex = AllocatePartition(batch.key.col[i], partition);
-                            ReachTime(keyIndex, vsync[i], partition);
-
-                            // Check to see if advancing time removed the key
-                            if (!this.lastDataTimeDictionary.Lookup(batch.key.col[i], out keyIndex))
-                                keyIndex = AllocatePartition(batch.key.col[i], partition);
+                            SetCutPoint(keyIndex, vsync[i]);
 
                             if (!this.stateDictionary.entries[keyIndex].value.Any())
                                 this.orderedKeysDictionary[partition].AddLast(new LinkedListNode<TKey>(batch.key.col[i]));
@@ -207,7 +220,7 @@ namespace Microsoft.StreamProcessing
                             keyIndex = AllocatePartition(batch.key.col[i], partition);
                         }
 
-                        ReachTime(-1, vsync[i], partition);
+                        ReachTime(vsync[i], partition);
 
                         int ind = this.output.Count++;
                         this.output.vsync.col[ind] = vsync[i];

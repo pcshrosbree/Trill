@@ -78,7 +78,10 @@ namespace Microsoft.StreamProcessing
                         }
                         else
                         {
+                            // Close the session if it is due to end by this event's time first, so that the event
+                            // that starts or continues a session sets its cut point
                             ReachTime(vsync[i], true);
+                            SetCutPoint(vsync[i]);
 
                             this.lastDataTime = vsync[i];
                         }
@@ -91,9 +94,13 @@ namespace Microsoft.StreamProcessing
             }
         }
 
-        private unsafe void ReachTime(long timestamp, bool isData)
+        // Sets the session's cut point from the time of a data event, if the session has none: either there is no
+        // session (InfinitySyncTime), or the session was cut and this event continues it (MaxSyncTime). Called after
+        // ReachTime has closed the session if it was due by the event's time, so the event that starts or continues
+        // a session sets that session's cut point.
+        private void SetCutPoint(long timestamp)
         {
-            if (isData && this.maximumDuration < StreamEvent.InfinitySyncTime)
+            if (this.maximumDuration < StreamEvent.InfinitySyncTime)
             {
                 // Evaluate new windowEndTime from maximumDuration and new data event timestamp
                 if (this.windowEndTime == StreamEvent.InfinitySyncTime)
@@ -106,7 +113,10 @@ namespace Microsoft.StreamProcessing
                     this.windowEndTime = timestamp - (timestamp % this.maximumDuration) + this.maximumDuration;
                 }
             }
+        }
 
+        private unsafe void ReachTime(long timestamp, bool isData)
+        {
             long threshold;
             if (this.lastDataTime == long.MinValue)
             {

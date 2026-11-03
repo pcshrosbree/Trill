@@ -136,27 +136,39 @@ using Microsoft.StreamProcessing.Internal.Collections;
  } 
             this.Write("   }\r\n\r\n    public override void ProduceQueryPlan(PlanNode previous)\r\n    {\r\n    " +
                     "    Observer.ProduceQueryPlan(queryPlanGenerator(previous, this));\r\n    }\r\n\r\n   " +
-                    " private void ReachTime(int pIndex, long timestamp)\r\n    {\r\n        if (pIndex !" +
-                    "= -1 && maximumDuration < StreamEvent.InfinitySyncTime)\r\n        {\r\n            " +
-                    "if (windowEndTimeDictionary.entries[pIndex].value == StreamEvent.InfinitySyncTim" +
-                    "e)\r\n            {\r\n                long mod = timestamp % maximumDuration;\r\n    " +
-                    "            windowEndTimeDictionary.entries[pIndex].value = timestamp - mod + ((" +
-                    "mod == 0 ? 1 : 2) * maximumDuration);\r\n            }\r\n            else if (windo" +
-                    "wEndTimeDictionary.entries[pIndex].value == StreamEvent.MaxSyncTime)\r\n          " +
-                    "  {\r\n                windowEndTimeDictionary.entries[pIndex].value = timestamp -" +
-                    " (timestamp % maximumDuration) + maximumDuration;\r\n            }\r\n        }\r\n\r\n " +
-                    "       var current = orderedKeys.First;\r\n        while (current != null)\r\n      " +
-                    "  {\r\n            int cIndex;\r\n            lastDataTimeDictionary.Lookup(current." +
-                    "Value, out cIndex);\r\n            var threshhold = lastDataTimeDictionary.entries" +
-                    "[cIndex].value == long.MinValue\r\n                ? windowEndTimeDictionary.entri" +
-                    "es[cIndex].value\r\n                : Math.Min(lastDataTimeDictionary.entries[cInd" +
-                    "ex].value + sessionTimeout, windowEndTimeDictionary.entries[cIndex].value);\r\n   " +
-                    "         if (timestamp >= threshhold)\r\n            {\r\n                var queue " +
-                    "= stateDictionary.entries[cIndex].value;\r\n                while (queue.Any())\r\n " +
-                    "               {\r\n                    var active = queue.Dequeue();\r\n\r\n         " +
-                    "           int ind = output.Count++;\r\n                    output.vsync.col[ind] " +
-                    "= threshhold;\r\n                    output.vother.col[ind] = active.Sync;\r\n      " +
-                    "              output.key.col[ind] = active.Key;\r\n");
+                    " // Sets the cut point of the key\'s session from the time of a data event, if th" +
+                    "e session has none: either\r\n    // the key has no session (InfinitySyncTime), or" +
+                    " its session was cut and this event continues it (MaxSyncTime).\r\n    // Called a" +
+                    "fter ReachTime has closed the sessions due by the event\'s time, so the event tha" +
+                    "t starts or\r\n    // continues a session sets that session\'s cut point.\r\n    priv" +
+                    "ate void SetCutPoint(int pIndex, long timestamp)\r\n    {\r\n        if (maximumDura" +
+                    "tion < StreamEvent.InfinitySyncTime)\r\n        {\r\n            if (windowEndTimeDi" +
+                    "ctionary.entries[pIndex].value == StreamEvent.InfinitySyncTime)\r\n            {\r\n" +
+                    "                long mod = timestamp % maximumDuration;\r\n                windowE" +
+                    "ndTimeDictionary.entries[pIndex].value = timestamp - mod + ((mod == 0 ? 1 : 2) *" +
+                    " maximumDuration);\r\n            }\r\n            else if (windowEndTimeDictionary." +
+                    "entries[pIndex].value == StreamEvent.MaxSyncTime)\r\n            {\r\n              " +
+                    "  // A session closed at its cut point before its timeout stays marked as contin" +
+                    "uing, even when a\r\n                // punctuation or another key closed it. If i" +
+                    "ts timeout has passed since its last event, this event\r\n                // start" +
+                    "s a new session instead.\r\n                long mod = timestamp % maximumDuration" +
+                    ";\r\n                windowEndTimeDictionary.entries[pIndex].value = timestamp >= " +
+                    "lastDataTimeDictionary.entries[pIndex].value + sessionTimeout\r\n                 " +
+                    "   ? timestamp - mod + ((mod == 0 ? 1 : 2) * maximumDuration)\r\n                 " +
+                    "   : timestamp - mod + maximumDuration;\r\n            }\r\n        }\r\n    }\r\n\r\n    " +
+                    "private void ReachTime(long timestamp)\r\n    {\r\n        var current = orderedKeys" +
+                    ".First;\r\n        while (current != null)\r\n        {\r\n            int cIndex;\r\n  " +
+                    "          lastDataTimeDictionary.Lookup(current.Value, out cIndex);\r\n           " +
+                    " var threshhold = lastDataTimeDictionary.entries[cIndex].value == long.MinValue\r" +
+                    "\n                ? windowEndTimeDictionary.entries[cIndex].value\r\n              " +
+                    "  : Math.Min(lastDataTimeDictionary.entries[cIndex].value + sessionTimeout, wind" +
+                    "owEndTimeDictionary.entries[cIndex].value);\r\n            if (timestamp >= thresh" +
+                    "hold)\r\n            {\r\n                var queue = stateDictionary.entries[cIndex" +
+                    "].value;\r\n                while (queue.Any())\r\n                {\r\n              " +
+                    "      var active = queue.Dequeue();\r\n\r\n                    int ind = output.Coun" +
+                    "t++;\r\n                    output.vsync.col[ind] = threshhold;\r\n                 " +
+                    "   output.vother.col[ind] = active.Sync;\r\n                    output.key.col[ind" +
+                    "] = active.Key;\r\n");
      foreach (var f in this.fields) { 
        if (f.OptimizeString()) { 
             this.Write("\r\n                    output.");
@@ -221,19 +233,19 @@ using Microsoft.StreamProcessing.Internal.Collections;
                 {
                     if (vsync[i] > vother[i]) // We have an end edge
                     {
-                        ReachTime(-1, vsync[i]);
+                        ReachTime(vsync[i]);
                     }
                     else
                     {
-                        // Check to see if the key is already being tracked
+                        // Close the sessions due to end by this event's time first, so that the event that
+                        // starts or continues the key's session sets its cut point
+                        ReachTime(vsync[i]);
+
+                        // Check to see if the key is being tracked: advancing time may have removed it
                         int keyIndex;
                         if (!lastDataTimeDictionary.Lookup(batch.key.col[i], out keyIndex))
                             keyIndex = AllocatePartition(batch.key.col[i]);
-                        ReachTime(keyIndex, vsync[i]);
-
-                        // Check to see if advancing time removed the key
-                        if (!lastDataTimeDictionary.Lookup(batch.key.col[i], out keyIndex))
-                            keyIndex = AllocatePartition(batch.key.col[i]);
+                        SetCutPoint(keyIndex, vsync[i]);
 
                         if (!stateDictionary.entries[keyIndex].value.Any()) orderedKeys.AddLast(new LinkedListNode<");
             this.Write(this.ToStringHelper.ToStringWithCulture(TKey));
@@ -281,7 +293,7 @@ using Microsoft.StreamProcessing.Internal.Collections;
                 }
                 else if (vother[i] == long.MinValue)
                 {
-                    ReachTime(-1, vsync[i]);
+                    ReachTime(vsync[i]);
 
                     int ind = output.Count++;
                     output.vsync.col[ind] = vsync[i];

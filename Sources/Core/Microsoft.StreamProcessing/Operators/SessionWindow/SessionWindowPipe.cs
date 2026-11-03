@@ -53,9 +53,13 @@ namespace Microsoft.StreamProcessing
                 typeof(TKey), typeof(TPayload), this.sessionTimeout, this.maximumDuration,
                 false, this.errorMessages));
 
-        private void ReachTime(int pIndex, long timestamp)
+        // Sets the cut point of the key's session from the time of a data event, if the session has none: either
+        // the key has no session (InfinitySyncTime), or its session was cut and this event continues it (MaxSyncTime).
+        // Called after ReachTime has closed the sessions due by the event's time, so the event that starts or
+        // continues a session sets that session's cut point.
+        private void SetCutPoint(int pIndex, long timestamp)
         {
-            if (pIndex != -1 && this.maximumDuration < StreamEvent.InfinitySyncTime)
+            if (this.maximumDuration < StreamEvent.InfinitySyncTime)
             {
                 if (this.windowEndTimeDictionary.entries[pIndex].value == StreamEvent.InfinitySyncTime)
                 {
@@ -64,10 +68,19 @@ namespace Microsoft.StreamProcessing
                 }
                 else if (this.windowEndTimeDictionary.entries[pIndex].value == StreamEvent.MaxSyncTime)
                 {
-                    this.windowEndTimeDictionary.entries[pIndex].value = timestamp - (timestamp % this.maximumDuration) + this.maximumDuration;
+                    // A session closed at its cut point before its timeout stays marked as continuing, even when a
+                    // punctuation or another key closed it. If its timeout has passed since its last event, this event
+                    // starts a new session instead.
+                    long mod = timestamp % this.maximumDuration;
+                    this.windowEndTimeDictionary.entries[pIndex].value = timestamp >= this.lastDataTimeDictionary.entries[pIndex].value + this.sessionTimeout
+                        ? timestamp - mod + ((mod == 0 ? 1 : 2) * this.maximumDuration)
+                        : timestamp - mod + this.maximumDuration;
                 }
             }
+        }
 
+        private void ReachTime(long timestamp)
+        {
             var current = this.orderedKeys.First;
             while (current != null)
             {
@@ -129,18 +142,18 @@ namespace Microsoft.StreamProcessing
                     {
                         if (vsync[i] > vother[i]) // We have an end edge
                         {
-                            ReachTime(-1, vsync[i]);
+                            ReachTime(vsync[i]);
                         }
                         else
                         {
-                            // Check to see if the key is already being tracked
+                            // Close the sessions due to end by this event's time first, so that the event that
+                            // starts or continues the key's session sets its cut point
+                            ReachTime(vsync[i]);
+
+                            // Check to see if the key is being tracked: advancing time may have removed it
                             if (!this.lastDataTimeDictionary.Lookup(batch.key.col[i], out int keyIndex))
                                 keyIndex = AllocatePartition(batch.key.col[i]);
-                            ReachTime(keyIndex, vsync[i]);
-
-                            // Check to see if advancing time removed the key
-                            if (!this.lastDataTimeDictionary.Lookup(batch.key.col[i], out keyIndex))
-                                keyIndex = AllocatePartition(batch.key.col[i]);
+                            SetCutPoint(keyIndex, vsync[i]);
 
                             if (!this.stateDictionary.entries[keyIndex].value.Any())
                                 this.orderedKeys.AddLast(new LinkedListNode<TKey>(batch.key.col[i]));
@@ -177,7 +190,7 @@ namespace Microsoft.StreamProcessing
                     }
                     else if (vother[i] == long.MinValue)
                     {
-                        ReachTime(-1, vsync[i]);
+                        ReachTime(vsync[i]);
 
                         int ind = this.output.Count++;
                         this.output.vsync.col[ind] = vsync[i];
