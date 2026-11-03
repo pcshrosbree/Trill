@@ -15,4 +15,6 @@ With a value field of a non-nullable value type, such as the `int Value` here, e
 
 In the diagram, a `Select` first builds a `Pair` with the nullable fields `Low` and `High`. `Unpivot` then turns each `Pair` into two events: `a:1` becomes `High 10` and `Low 1`, both over `[1,5)`.
 
+`Unpivot` can run in [columnar mode](../row-mode.md). When row mode is not forced, the diagram's query using `Pair` and `Triple` runs in columnar mode.
+
 **See also:** [Pivot](pivot.md), [SelectMany](select-many.md)

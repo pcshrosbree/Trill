@@ -479,6 +479,31 @@ public sealed class PageClaimTests
                 .Unpivot(() => new ObjectTriple(), p => p.Key, t => t.Attribute, t => t.Value)));
     }
 
+    // unpivot.md: "Unpivot can run in columnar mode. When row mode is not forced, the diagram's query using Pair and
+    // Triple runs in columnar mode." So no operator of that query reports falling back to row mode, as row-mode.md
+    // describes. (The diagrams themselves are drawn in row mode.)
+    [TestMethod]
+    [DoNotParallelize]
+    public void UnpivotRunsColumnar()
+    {
+        var reports = new List<RowModeReport>();
+        try
+        {
+            Config.RowModeReporter = reports.Add;
+            Config.ForceRowBasedExecution = false;
+            var result = Operators.Ingress([I(1, 5, "a", 1)])
+                .Select(e => new Pair { Key = e.Key, Low = e.Value, High = e.Value * 10 })
+                .Unpivot(() => new Triple(), p => p.Key, t => t.Attribute, t => t.Value);
+            Assert.AreEqual("Interval[1,5)a:High 10 Interval[1,5)a:Low 1", Show(Operators.Collect(result)));
+            Assert.AreEqual(0, reports.Count, string.Join("\n", reports));
+        }
+        finally
+        {
+            Config.RowModeReporter = null;
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
     // Each output's attribute, then its value's runtime type and value, so an unboxed value fails here.
     static string ShowObjects(IStreamable<Empty, ObjectTriple> query)
     {
