@@ -172,17 +172,22 @@ namespace Microsoft.StreamProcessing
         /// <typeparam name="TKey">Type of (mapping) key in the stream</typeparam>
         /// <typeparam name="TPayload">Type of payload in the stream</typeparam>
         /// <param name="source">Input stream</param>
-        /// <param name="timeout">Timeout for closing the current session</param>
-        /// <param name="maxDuration">The max duration of a session timeout window</param>
+        /// <param name="timeout">Timeout for closing the current session; must be positive</param>
+        /// <param name="maxDuration">The max duration of a session timeout window; 0 or less means no limit, which stands
+        /// for <see cref="StreamEvent.InfinitySyncTime"/>. The max duration must be greater than <paramref name="timeout"/>.</param>
         /// <returns>Result (output) stream</returns>
+        /// <exception cref="ArgumentException"><paramref name="timeout"/> is 0 or less, or the max duration (with 0 or less
+        /// taken as <see cref="StreamEvent.InfinitySyncTime"/>) is not greater than <paramref name="timeout"/>.</exception>
         public static IStreamable<TKey, TPayload> SessionTimeoutWindow<TKey, TPayload>(
             this IStreamable<TKey, TPayload> source,
             long timeout,
             long maxDuration = 0L)
         {
             Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsPositive(timeout, nameof(timeout));
 
             if (maxDuration <= 0L) maxDuration = StreamEvent.InfinitySyncTime;
+            if (maxDuration <= timeout) throw new ArgumentException("Maximum duration must be greater than the timeout.", nameof(maxDuration));
             return new SessionWindowStreamable<TKey, TPayload>(source, timeout, maxDuration);
         }
 
