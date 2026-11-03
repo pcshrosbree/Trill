@@ -247,7 +247,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("FixedIntervalEquijoin", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("FixedIntervalEquijoin", errorMessages, e);
             }
         }
 

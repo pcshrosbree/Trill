@@ -171,7 +171,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("Group", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("Group", errorMessages, e);
             }
         }
     }

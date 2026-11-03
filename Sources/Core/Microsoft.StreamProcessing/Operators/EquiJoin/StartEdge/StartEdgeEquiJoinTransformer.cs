@@ -178,7 +178,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("StartEdgeEquiJoin", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("StartEdgeEquiJoin", errorMessages, e);
             }
         }
     }

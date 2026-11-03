@@ -87,7 +87,7 @@ namespace Microsoft.StreamProcessing
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                     throw CodegenFailure.Create(this.GetType().Name, errorMessages, e);
 
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback(this.GetType().Name, errorMessages, e);
             }
         }
     }

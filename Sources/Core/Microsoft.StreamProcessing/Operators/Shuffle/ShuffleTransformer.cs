@@ -157,7 +157,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("Shuffle", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("Shuffle", errorMessages, e);
             }
         }
     }

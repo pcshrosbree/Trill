@@ -185,9 +185,12 @@ namespace Microsoft.StreamProcessing
         internal static readonly RowModeRefusal Partitioned
             = new RowModeRefusal(RowModeReason.PartitionedStream, null, "partitioned streams run in row mode", null, null);
 
-        // A failed generation: Item1 is null, Item2 holds any compiler diagnostics.
+        // A failed generation: Item1 is null, Item2 holds any compiler diagnostics. Every operator and egress
+        // turns a failed generation into a fallback through here, so this is where a disabled fallback is
+        // enforced for a failure that was cached while fallback was allowed.
         internal static RowModeRefusal CodeGenerationFailed(Tuple<Type, string> generated)
         {
+            CodegenFailure.ThrowIfFallbackIsDisabled(generated);
             var exception = CodegenFailure.ExceptionOf(generated);
             var detail = exception != null
                 ? "code generation threw " + exception.GetType().Name + ": " + exception.Message

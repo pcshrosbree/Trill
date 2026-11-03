@@ -542,30 +542,32 @@ namespace SimpleTesting
         }
 
         // A captured object is not a literal type, so its field is still read as events arrive, and the operator
-        // runs in row mode because generated code cannot read the closure class. Select and Where fall back to
-        // row mode here even when fallback is disabled; that gap is tracked separately.
+        // runs in row mode because generated code cannot read the closure class. With fallback disabled, the
+        // query throws instead.
         [TestMethod, TestCategory("Gated")]
         public void CapturedObjectIsReadLive()
-        {
-            var box = new CapturedBox { Value = 10 };
-            var result = Unfused().Select(e => new CapturedInput { Key = e.Key * box.Value });
-            box.Value = 100;
+            => AssertRowModeUnlessFallbackIsDisabled(() =>
+            {
+                var box = new CapturedBox { Value = 10 };
+                var result = Unfused().Select(e => new CapturedInput { Key = e.Key * box.Value });
+                box.Value = 100;
 
-            Assert.IsFalse(result.Properties.IsColumnar);
-            CollectionAssert.AreEquivalent(new[] { "1:100", "2:200", "4:100", "7:200", "9:100" }, CollectKeys(result));
-        }
+                Assert.IsFalse(result.Properties.IsColumnar);
+                CollectionAssert.AreEquivalent(new[] { "1:100", "2:200", "4:100", "7:200", "9:100" }, CollectKeys(result));
+            });
 
         // A nullable value type has no literal form, so it is still read as events arrive.
         [TestMethod, TestCategory("Gated")]
         public void CapturedNullableIsReadLive()
-        {
-            int? key = 2;
-            var result = Unfused().Where(e => e.Key == key);
-            key = 1;
+            => AssertRowModeUnlessFallbackIsDisabled(() =>
+            {
+                int? key = 2;
+                var result = Unfused().Where(e => e.Key == key);
+                key = 1;
 
-            Assert.IsFalse(result.Properties.IsColumnar);
-            CollectionAssert.AreEquivalent(new[] { "1:1", "4:1", "9:1" }, CollectKeys(result));
-        }
+                Assert.IsFalse(result.Properties.IsColumnar);
+                CollectionAssert.AreEquivalent(new[] { "1:1", "4:1", "9:1" }, CollectKeys(result));
+            });
 
         // A user-written aggregate is rewritten by the window operator that receives it.
         [TestMethod, TestCategory("Gated")]
@@ -681,15 +683,17 @@ namespace SimpleTesting
         }
 
         // The query writes the captured variable itself, as an out argument, so it must keep reading the
-        // variable rather than a constant.
+        // variable rather than a constant. Generated code cannot read the closure class, so with fallback
+        // disabled the query throws.
         [TestMethod, TestCategory("Gated")]
         public void CapturedLocalWrittenByTheQueryIsNotReplaced()
-        {
-            int parsed = 0;
-            var result = Unfused().Select(e => new CapturedInput { Key = int.TryParse((e.Key * 10).ToString(), out parsed) ? parsed : -1 });
+            => AssertRowModeUnlessFallbackIsDisabled(() =>
+            {
+                int parsed = 0;
+                var result = Unfused().Select(e => new CapturedInput { Key = int.TryParse((e.Key * 10).ToString(), out parsed) ? parsed : -1 });
 
-            CollectionAssert.AreEquivalent(KeysTimesTen, CollectKeys(result));
-        }
+                CollectionAssert.AreEquivalent(KeysTimesTen, CollectKeys(result));
+            });
 
         // GroupedWindowStreamable caches its generated pipe. Two aggregates that differ only in a captured value
         // or a constant must not share one.
@@ -741,8 +745,8 @@ namespace SimpleTesting
         }
 
         // A selector that the C# renderer cannot write must still fall back to row mode, as it did before this
-        // change; working out a cache key for its generated code must not throw first. These operators fall
-        // back without throwing even when fallback is disabled.
+        // change; working out a cache key for its generated code must not throw first. The renderer's exception
+        // stops code generation, so with fallback disabled these queries throw instead.
         [TestMethod, TestCategory("Gated")]
         public void UnrenderableGroupKeyFallsBack()
             => AssertFallsBack(
@@ -769,6 +773,12 @@ namespace SimpleTesting
                         .Select(k => k.ToString(CultureInfo.InvariantCulture)).ToList(),
                     new[] { "1", "2" });
             }
+
+            // With fallback disabled, the shuffle throws during Subscribe, after the query has taken batches from
+            // the memory pools, and the abandoned query never returns them. That is not what this test checks, so
+            // reset the pools rather than report a leak.
+            if (Config.CodegenOptions.DontFallBackToRowBasedExecution && !Config.ForceRowBasedExecution)
+                MemoryManager.Free(true);
         }
 
         [TestMethod, TestCategory("Gated")]
@@ -888,7 +898,22 @@ namespace SimpleTesting
         }
 
         private static void AssertFallsBack(Func<List<string>> run, string[] expected)
-            => CollectionAssert.AreEquivalent(expected, run());
+            => AssertRowModeUnlessFallbackIsDisabled(() => CollectionAssert.AreEquivalent(expected, run()));
+
+        // For a query whose columnar code generation fails: it runs in row mode, unless fallback to row mode is
+        // disabled (and row mode is not forced), when it throws.
+        private static void AssertRowModeUnlessFallbackIsDisabled(Action run)
+        {
+            if (Config.CodegenOptions.DontFallBackToRowBasedExecution && !Config.ForceRowBasedExecution)
+            {
+                var error = Assert.ThrowsException<InvalidOperationException>(run);
+                StringAssert.StartsWith(error.Message, "Code Generation failed when it wasn't supposed to! Operator: ");
+            }
+            else
+            {
+                run();
+            }
+        }
 
         private static void AssertGroupedWindow<TPayload>(IStreamable<Empty, TPayload> result)
             => StringAssert.StartsWith(result.GetType().Name, "GroupedWindowStreamable");

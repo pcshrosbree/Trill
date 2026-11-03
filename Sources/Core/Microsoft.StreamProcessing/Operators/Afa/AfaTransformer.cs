@@ -88,7 +88,7 @@ namespace Microsoft.StreamProcessing
                 if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
                     throw CodegenFailure.Create("Afa", errorMessages, e);
 
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("Afa", errorMessages, e);
             }
         }
 

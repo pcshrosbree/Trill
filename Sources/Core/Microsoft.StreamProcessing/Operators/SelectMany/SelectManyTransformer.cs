@@ -182,7 +182,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("SelectMany", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("SelectMany", errorMessages, e);
             }
         }
 

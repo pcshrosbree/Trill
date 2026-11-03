@@ -201,7 +201,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("IncreasingOrderEquiJoin", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("IncreasingOrderEquiJoin", errorMessages, e);
             }
         }
 

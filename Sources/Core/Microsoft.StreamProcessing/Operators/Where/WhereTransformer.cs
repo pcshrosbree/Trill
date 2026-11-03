@@ -115,7 +115,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("Where", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("Where", errorMessages, e);
             }
         }
     }

@@ -33,20 +33,48 @@ namespace Microsoft.StreamProcessing
         }
 
         // The generators' results are cached, failures included, so a second build of the same query
-        // gets the same tuple back without running the generator. Keep the exception beside the tuple
-        // so that a row-mode report from any build can carry it.
-        private static readonly ConditionalWeakTable<Tuple<Type, string>, Exception> Exceptions
-            = new ConditionalWeakTable<Tuple<Type, string>, Exception>();
+        // gets the same tuple back without running the generator. Keep the operator name and the exception
+        // beside the tuple, so that a row-mode report from any build can carry the exception, and a build
+        // with fallback disabled can throw what the generator would have thrown.
+        private static readonly ConditionalWeakTable<Tuple<Type, string>, Failure> Failures
+            = new ConditionalWeakTable<Tuple<Type, string>, Failure>();
 
         // With fallback to row mode allowed, a failed code generation returns this result.
-        internal static Tuple<Type, string> Fallback(string errorMessages, Exception exception)
+        internal static Tuple<Type, string> Fallback(string operatorName, string errorMessages, Exception exception)
         {
             var result = Tuple.Create((Type)null, errorMessages);
-            Exceptions.Add(result, exception);
+            Failures.Add(result, new Failure(operatorName, exception));
             return result;
         }
 
         internal static Exception ExceptionOf(Tuple<Type, string> generated)
-            => generated != null && Exceptions.TryGetValue(generated, out var exception) ? exception : null;
+            => generated != null && Failures.TryGetValue(generated, out var failure) ? failure.Exception : null;
+
+        // The generator checks the setting only when it runs, but a failure cached while fallback was allowed
+        // reaches later builds without running it. With fallback disabled, such a failure throws here, as the
+        // generator would have. A generator that declined without an exception made no Fallback result, and
+        // still falls back.
+        internal static void ThrowIfFallbackIsDisabled(Tuple<Type, string> generated)
+        {
+            if (Config.CodegenOptions.DontFallBackToRowBasedExecution
+                && generated != null
+                && Failures.TryGetValue(generated, out var failure))
+            {
+                throw Create(failure.OperatorName, generated.Item2, failure.Exception);
+            }
+        }
+
+        private sealed class Failure
+        {
+            internal Failure(string operatorName, Exception exception)
+            {
+                this.OperatorName = operatorName;
+                this.Exception = exception;
+            }
+
+            internal string OperatorName { get; }
+
+            internal Exception Exception { get; }
+        }
     }
 }

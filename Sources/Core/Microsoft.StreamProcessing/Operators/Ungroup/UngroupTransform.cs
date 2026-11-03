@@ -183,7 +183,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("Ungroup", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("Ungroup", errorMessages, e);
             }
         }
 

@@ -270,7 +270,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("Aggregate", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("Aggregate", errorMessages, e);
             }
         }
 

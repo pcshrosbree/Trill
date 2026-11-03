@@ -308,7 +308,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("GroupedWindow", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("GroupedWindow", errorMessages, e);
             }
         }
 

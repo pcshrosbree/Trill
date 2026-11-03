@@ -88,7 +88,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("TemporalEgress", errorMessages, e);
             }
         }
 
@@ -125,7 +125,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("TemporalEgress", errorMessages, e);
             }
         }
 
@@ -163,7 +163,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("TemporalEgress", errorMessages, e);
             }
         }
 
@@ -191,7 +191,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("TemporalEgress", errorMessages, e);
             }
         }
 
@@ -229,7 +229,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("TemporalEgress", errorMessages, e);
             }
         }
 
@@ -268,7 +268,7 @@ namespace Microsoft.StreamProcessing
                 {
                     throw CodegenFailure.Create("TemporalEgress", errorMessages, e);
                 }
-                return CodegenFailure.Fallback(errorMessages, e);
+                return CodegenFailure.Fallback("TemporalEgress", errorMessages, e);
             }
         }
     }
