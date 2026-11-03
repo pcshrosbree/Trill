@@ -887,6 +887,92 @@ namespace Microsoft.StreamProcessing
             Invariant.IsPositive(k, nameof(k));
             return source.Aggregate(w => w.TopK(selector, new ComparerExpression<T>(comparer), k));
         }
+
+        /// <summary>
+        /// Computes a time-sensitive continuous percentile aggregate using snapshot semantics. This is
+        /// <c>source.Aggregate(w =&gt; w.PercentileContinuous(percentile, selector))</c>.
+        /// </summary>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="percentile">The percentile, from 0 to 1, such as 0.5 for the median.</param>
+        /// <param name="selector">Selects the value of each event.</param>
+        /// <returns>A stream of the percentile of the live events' values, interpolated between two values where needed.</returns>
+        public static IStreamable<TKey, double> PercentileContinuous<TKey, TPayload>(
+            this IStreamable<TKey, TPayload> source,
+            double percentile,
+            Expression<Func<TPayload, double>> selector)
+        {
+            Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsNotNull(selector, nameof(selector));
+            return source.Aggregate(w => w.PercentileContinuous(percentile, selector));
+        }
+
+        /// <summary>
+        /// Computes a time-sensitive continuous percentile aggregate using snapshot semantics with the provided
+        /// ordering comparer. This is <c>source.Aggregate(w =&gt; w.PercentileContinuous(comparer, percentile, selector))</c>.
+        /// </summary>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="comparer">The comparison that orders the values.</param>
+        /// <param name="percentile">The percentile, from 0 to 1, counted in the order of <paramref name="comparer"/>.</param>
+        /// <param name="selector">Selects the value of each event.</param>
+        /// <returns>A stream of the percentile of the live events' values, interpolated between two values where needed.</returns>
+        public static IStreamable<TKey, double> PercentileContinuous<TKey, TPayload>(
+            this IStreamable<TKey, TPayload> source,
+            Expression<Comparison<double>> comparer,
+            double percentile,
+            Expression<Func<TPayload, double>> selector)
+        {
+            Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsNotNull(comparer, nameof(comparer));
+            Invariant.IsNotNull(selector, nameof(selector));
+            return source.Aggregate(w => w.PercentileContinuous(comparer, percentile, selector));
+        }
+
+        /// <summary>
+        /// Computes a time-sensitive discrete percentile aggregate using snapshot semantics. This is
+        /// <c>source.Aggregate(w =&gt; w.PercentileDiscrete(percentile, selector))</c>.
+        /// </summary>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="percentile">The percentile, from 0 to 1, such as 0.5 for the median.</param>
+        /// <param name="selector">Selects the value of each event.</param>
+        /// <returns>A stream of the percentile of the live events' values, always one of the values.</returns>
+        public static IStreamable<TKey, double> PercentileDiscrete<TKey, TPayload>(
+            this IStreamable<TKey, TPayload> source,
+            double percentile,
+            Expression<Func<TPayload, double>> selector)
+        {
+            Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsNotNull(selector, nameof(selector));
+            return source.Aggregate(w => w.PercentileDiscrete(percentile, selector));
+        }
+
+        /// <summary>
+        /// Computes a time-sensitive discrete percentile aggregate using snapshot semantics with the provided
+        /// ordering comparer. This is <c>source.Aggregate(w =&gt; w.PercentileDiscrete(comparer, percentile, selector))</c>.
+        /// </summary>
+        /// <typeparam name="TKey">The grouping key type of the stream.</typeparam>
+        /// <typeparam name="TPayload">The payload type of the stream.</typeparam>
+        /// <param name="source">The stream.</param>
+        /// <param name="comparer">The comparison that orders the values.</param>
+        /// <param name="percentile">The percentile, from 0 to 1, counted in the order of <paramref name="comparer"/>.</param>
+        /// <param name="selector">Selects the value of each event.</param>
+        /// <returns>A stream of the percentile of the live events' values, always one of the values.</returns>
+        public static IStreamable<TKey, double> PercentileDiscrete<TKey, TPayload>(
+            this IStreamable<TKey, TPayload> source,
+            Expression<Comparison<double>> comparer,
+            double percentile,
+            Expression<Func<TPayload, double>> selector)
+        {
+            Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsNotNull(comparer, nameof(comparer));
+            Invariant.IsNotNull(selector, nameof(selector));
+            return source.Aggregate(w => w.PercentileDiscrete(comparer, percentile, selector));
+        }
         #endregion
 
         #region CompoundAggregates
