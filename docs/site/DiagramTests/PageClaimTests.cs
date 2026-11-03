@@ -853,7 +853,7 @@ public sealed class PageClaimTests
 
     // session-timeout-window.md: the first session's cut point is the first multiple of maxDuration at least
     // maxDuration after its first event; a session that continues a cut one takes the first multiple of
-    // maxDuration after its second event; a session with one event ends at its timeout.
+    // maxDuration after its first event; a session with one event ends at its timeout.
     [TestMethod]
     public void SessionMaxDurationCutsAtAMultiple()
     {
@@ -868,19 +868,15 @@ public sealed class PageClaimTests
             Show(Operators.Collect(fromZero.SessionTimeoutWindow(3, 4))));
     }
 
-    // session-timeout-window.md, known issue: a session that begins after a timeout takes its cut point from
-    // its second event, so the session that starts at 7 with its second event at 9 is cut at 16 and lasts 9
-    // ticks, though its timeout would end it at 18; with its second event at 8 it is cut at 12. This pins the engine defect as it is today: when it
-    // is fixed, this test fails, and session-timeout-window.md's known-issue paragraph (and this test) must be updated.
+    // session-timeout-window.md: a session takes its cut point from its first event, even when that event ends
+    // the previous session at its timeout: the session that starts at 7 is cut at 12, and the event at 12
+    // continues it in a new one, cut at 16.
     [TestMethod]
-    public void SessionKnownIssueCutPointFromTheSecondEvent()
+    public void SessionCutPointFromTheFirstEvent()
     {
-        var secondAtNine = In(new long[] { 1, 2, 4, 7, 9, 10, 11, 12, 13, 14, 15 }.Select(t => Tick(t, "a", (int)t)).ToArray());
-        Assert.AreEqual("Interval[1,7)a:1 Interval[2,7)a:2 Interval[4,7)a:4 Interval[7,16)a:7 Interval[9,16)a:9 Interval[10,16)a:10 Interval[11,16)a:11 Interval[12,16)a:12 Interval[13,16)a:13 Interval[14,16)a:14 Interval[15,16)a:15",
-            Show(Operators.Collect(secondAtNine.SessionTimeoutWindow(3, 4))));
-        var secondAtEight = In(new long[] { 1, 2, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15 }.Select(t => Tick(t, "a", (int)t)).ToArray());
-        Assert.AreEqual("Interval[1,7)a:1 Interval[2,7)a:2 Interval[4,7)a:4 Interval[7,12)a:7 Interval[8,12)a:8 Interval[9,12)a:9 Interval[10,12)a:10 Interval[11,12)a:11 Interval[12,16)a:12 Interval[13,16)a:13 Interval[14,16)a:14 Interval[15,16)a:15",
-            Show(Operators.Collect(secondAtEight.SessionTimeoutWindow(3, 4))));
+        var input = In(new long[] { 1, 2, 4, 7, 9, 10, 11, 12, 13, 14, 15 }.Select(t => Tick(t, "a", (int)t)).ToArray());
+        Assert.AreEqual("Interval[1,7)a:1 Interval[2,7)a:2 Interval[4,7)a:4 Interval[7,12)a:7 Interval[9,12)a:9 Interval[10,12)a:10 Interval[11,12)a:11 Interval[12,16)a:12 Interval[13,16)a:13 Interval[14,16)a:14 Interval[15,16)a:15",
+            Show(Operators.Collect(input.SessionTimeoutWindow(3, 4))));
     }
 
     /// <summary>One-tick events at 1, 2, 4, 7 and 9 to 15, with a punctuation at 7 just before the event at 7 if asked.</summary>
@@ -895,29 +891,50 @@ public sealed class PageClaimTests
         return events.ToObservable().ToStreamable();
     }
 
+    /// <summary>One-tick events at 1, 5, 9, 11, 20 and 24, with a punctuation at 12 just before the event at 20 if asked.</summary>
+    static IStreamable<Empty, Ev> SessionInputAfterACut(bool punctuationAtTwelve)
+    {
+        var events = new List<StreamEvent<Ev>>();
+        foreach (var t in new long[] { 1, 5, 9, 11, 20, 24 })
+        {
+            if (t == 20 && punctuationAtTwelve) events.Add(StreamEvent.CreatePunctuation<Ev>(12));
+            events.Add(StreamEvent.CreateInterval(t, t + 1, new Ev { Key = "a", Value = (int)t }));
+        }
+        return events.ToObservable().ToStreamable();
+    }
+
     /// <summary>Each event's start and end as "start-end", from intervals and end edges.</summary>
     static string Lifetimes(List<EventDto> events) =>
         string.Join(" ", events.Where(e => e.Kind != "Start").Select(e => e.Start + "-" + e.End));
 
-    // session-timeout-window.md, known issue: with a punctuation at 7 before the event at 7, the session that starts
-    // at 7 takes its cut point from 7 and ends at 12, inside GroupApply and in columnar mode; in row mode on a
-    // stream with no grouping key it still ends at 16. This pins the engine behaviour as it is today: when it
-    // changes, this test fails, and session-timeout-window.md (and this test) must be updated.
+    // session-timeout-window.md: punctuations do not change where a session is cut. With or without a
+    // punctuation at 7 before the event at 7, the session that starts at 7 is cut at 12. With a timeout of 5
+    // and a maxDuration of 6, a punctuation at 12 closes the first session at its cut point; the event at 20
+    // still starts a new session after the timeout, which ends at its timeout, 29, as it does with no
+    // punctuation. Both hold in row and columnar mode, with and without GroupApply.
     [TestMethod]
     [DoNotParallelize]
-    public void SessionKnownIssueCutPointAfterAPunctuation()
+    public void SessionCutPointIgnoresPunctuations()
     {
         const string fromFirst = "1-7 2-7 4-7 7-12 9-12 10-12 11-12 12-16 13-16 14-16 15-16";
+        const string afterTheTimeout = "1-12 5-12 9-12 11-12 20-29 24-29";
         try
         {
-            Config.ForceRowBasedExecution = true;
-            Assert.AreEqual(fromFirst, Lifetimes(Operators.Collect(
-                SessionInput(punctuationAtSeven: true).GroupApply(e => 0, g => g.SessionTimeoutWindow(3, 4), (g, e) => e))));
-            Assert.AreEqual("1-7 2-7 4-7 7-16 9-16 10-16 11-16 12-16 13-16 14-16 15-16",
-                Lifetimes(Operators.Collect(SessionInput(punctuationAtSeven: true).SessionTimeoutWindow(3, 4))));
-
-            Config.ForceRowBasedExecution = false;
-            Assert.AreEqual(fromFirst, Lifetimes(Operators.Collect(SessionInput(punctuationAtSeven: true).SessionTimeoutWindow(3, 4))));
+            foreach (var rowMode in new[] { true, false })
+            {
+                Config.ForceRowBasedExecution = rowMode;
+                foreach (var punctuation in new[] { true, false })
+                {
+                    var label = (rowMode ? "row" : "columnar") + (punctuation ? ", punctuation at 7" : "");
+                    Assert.AreEqual(fromFirst, Lifetimes(Operators.Collect(
+                        SessionInput(punctuation).GroupApply(e => 0, g => g.SessionTimeoutWindow(3, 4), (g, e) => e))), "GroupApply, " + label);
+                    Assert.AreEqual(fromFirst, Lifetimes(Operators.Collect(SessionInput(punctuation).SessionTimeoutWindow(3, 4))), label);
+                    var afterCutLabel = (rowMode ? "row" : "columnar") + (punctuation ? ", punctuation at 12" : "");
+                    Assert.AreEqual(afterTheTimeout, Lifetimes(Operators.Collect(
+                        SessionInputAfterACut(punctuation).GroupApply(e => 0, g => g.SessionTimeoutWindow(5, 6), (g, e) => e))), "GroupApply, " + afterCutLabel);
+                    Assert.AreEqual(afterTheTimeout, Lifetimes(Operators.Collect(SessionInputAfterACut(punctuation).SessionTimeoutWindow(5, 6))), afterCutLabel);
+                }
+            }
         }
         finally
         {
