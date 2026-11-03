@@ -10,6 +10,8 @@ In the diagram the timeout is 3. The events at 1, 2 and 4 form one session, whic
 
 The stream has no grouping key here, so `a` and `b` share their sessions. Inside `GroupApply`, each key has its own sessions: `a` and `b` would then end at 4, 5, 7, 10 and 12.
 
+Each event gets the same lifetime in every mode, but not the same kind of output event. On a stream with no grouping key, row mode, which the diagram uses, emits each event as one interval event. Columnar mode, and both modes inside `GroupApply`, emit each event as a start edge and a later end edge.
+
 The optional second argument, `maxDuration`, cuts long sessions at a multiple of `maxDuration`. A session ends at its timeout or at its cut point, whichever comes first. A session's first event, at time `t`, sets its cut point:
 
 - If the session begins after a timeout, as the stream's first session does, the cut point is the first multiple of `maxDuration` that is at least `maxDuration` after `t`. This holds even when the session's first event is what ends the previous session at its timeout.

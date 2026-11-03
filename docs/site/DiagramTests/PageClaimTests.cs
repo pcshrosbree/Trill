@@ -893,6 +893,27 @@ public sealed class PageClaimTests
         Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:2 End[1,4)a:1 Start[4,inf)a:3 End[2,5)b:2 End[4,7)a:3 Start[7,inf)b:4 Start[9,inf)a:5 End[7,10)b:4 End[9,12)a:5",
             Show(Operators.Collect(Ticks().GroupApply(e => e.Key, g => g.SessionTimeoutWindow(3), (g, e) => e))));
 
+    // session-timeout-window.md: every mode gives the same lifetimes, but on a stream with no grouping key row mode
+    // emits interval events, while columnar mode emits a start edge and a later end edge for each event.
+    [TestMethod]
+    [DoNotParallelize]
+    public void SessionOutputEventsByMode()
+    {
+        Assert.AreEqual("Interval[1,7)a:1 Interval[2,7)b:2 Interval[4,7)a:3 Interval[7,12)b:4 Interval[9,12)a:5",
+            Show(Operators.Collect(Ticks().SessionTimeoutWindow(3))));
+        var input = Operators.All.Single(e => e.Id == "session-timeout-window").DefaultInputs[0];
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            Assert.AreEqual("Start[1,inf)a:1 Start[2,inf)b:2 Start[4,inf)a:3 End[1,7)a:1 End[2,7)b:2 End[4,7)a:3 Start[7,inf)b:4 Start[9,inf)a:5 End[7,12)b:4 End[9,12)a:5",
+                Show(Operators.Collect(Operators.Ingress(input).SessionTimeoutWindow(3))));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
     // session-timeout-window.md: the first session's cut point is the first multiple of maxDuration at least
     // maxDuration after its first event; a session that continues a cut one takes the first multiple of
     // maxDuration after its first event; a session with one event ends at its timeout.
