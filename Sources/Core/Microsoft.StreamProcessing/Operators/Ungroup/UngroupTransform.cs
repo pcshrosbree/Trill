@@ -154,8 +154,10 @@ namespace Microsoft.StreamProcessing
                 assemblyReferences = Transformer.AssemblyReferencesNeededFor(typeOfTOuterKey, typeOfTInnerKey, typeofTInnerResult, typeofTResult);
                 assemblyReferences.Add(typeof(IStreamable<,>).GetTypeInfo().Assembly);
 
-                // input messages
-                assemblyReferences.Add(Transformer.GeneratedStreamMessageAssembly<CompoundGroupKey<TOuterKey, TInnerKey>, TInnerResult>());
+                // input messages: keyed by the inner key alone when there is no outer key
+                assemblyReferences.Add(isFirstLevelGroup
+                    ? Transformer.GeneratedStreamMessageAssembly<TInnerKey, TInnerResult>()
+                    : Transformer.GeneratedStreamMessageAssembly<CompoundGroupKey<TOuterKey, TInnerKey>, TInnerResult>());
 
                 // output messages
                 assemblyReferences.Add(Transformer.GeneratedStreamMessageAssembly<TOuterKey, TResult>());

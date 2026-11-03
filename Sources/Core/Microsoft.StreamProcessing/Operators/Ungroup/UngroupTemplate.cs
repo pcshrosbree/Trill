@@ -280,7 +280,7 @@ using Microsoft.StreamProcessing.Internal.Collections;
      } 
  if (this.ProjectionReturningResultInstance != null) {
             var map = new Dictionary<System.Linq.Expressions.ParameterExpression, string>();
-            map.Add(this.keyParameter, "batch.key.col[i].InnerGroup");
+            map.Add(this.keyParameter, this.ungroupingFromCompound ? "batch.key.col[i].InnerGroup" : "batch.key.col[i]");
             var v = this.ProjectionReturningResultInstance.ExpressionToCSharpStringWithParameterSubstitution(map);
 
             this.Write("                    resultBatch[i] = ");
@@ -291,7 +291,7 @@ using Microsoft.StreamProcessing.Internal.Collections;
             var f = kv.Key;
             string v;
             var map = new Dictionary<System.Linq.Expressions.ParameterExpression, string>();
-            map.Add(this.keyParameter, "batch.key.col[i].InnerGroup");
+            map.Add(this.keyParameter, this.ungroupingFromCompound ? "batch.key.col[i].InnerGroup" : "batch.key.col[i]");
             v = kv.Value.ExpressionToCSharpStringWithParameterSubstitution(map);
 
           if (f.OptimizeString()) { 

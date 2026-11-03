@@ -196,7 +196,7 @@ internal sealed class <#= className #><#= genericParameters #> :
 <#     } #>
 <# if (this.ProjectionReturningResultInstance != null) {
             var map = new Dictionary<System.Linq.Expressions.ParameterExpression, string>();
-            map.Add(this.keyParameter, "batch.key.col[i].InnerGroup");
+            map.Add(this.keyParameter, this.ungroupingFromCompound ? "batch.key.col[i].InnerGroup" : "batch.key.col[i]");
             var v = this.ProjectionReturningResultInstance.ExpressionToCSharpStringWithParameterSubstitution(map);
 #>
                     resultBatch[i] = <#= v #>;
@@ -205,7 +205,7 @@ internal sealed class <#= className #><#= genericParameters #> :
             var f = kv.Key;
             string v;
             var map = new Dictionary<System.Linq.Expressions.ParameterExpression, string>();
-            map.Add(this.keyParameter, "batch.key.col[i].InnerGroup");
+            map.Add(this.keyParameter, this.ungroupingFromCompound ? "batch.key.col[i].InnerGroup" : "batch.key.col[i]");
             v = kv.Value.ExpressionToCSharpStringWithParameterSubstitution(map);
 #>
 <#          if (f.OptimizeString()) { #>
