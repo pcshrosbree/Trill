@@ -447,6 +447,15 @@ namespace Microsoft.StreamProcessing
                     if (setMethod.ReturnParameter.GetRequiredCustomModifiers().Contains(typeof(IsExternalInit)))
                         return "property " + p.Name + " has an init-only setter";
                 }
+
+                // Each public field and auto-property gets a column named after it. A class that uses `new` to
+                // hide an inherited field, or an inherited auto-property of another type, has two such members of
+                // one name, and reflection returns both. One layout cannot hold both columns, and keeping only the
+                // derived member would lose the base member's value.
+                var duplicate = ColumnarRepresentation.ColumnMembers(type)
+                    .GroupBy(m => m.Name, StringComparer.Ordinal)
+                    .FirstOrDefault(g => g.Count() > 1);
+                if (duplicate != null) return "more than one member is named " + duplicate.Key;
             }
 
             if (type.IsValueType) // we can always create instances of a struct

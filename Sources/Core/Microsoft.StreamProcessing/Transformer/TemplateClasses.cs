@@ -643,20 +643,10 @@ namespace System.Runtime.CompilerServices
             this.RepresentationFor = t;
             var d = new Dictionary<string, MyFieldInfo>();
             this.Fields = d;
-            foreach (var f in t.GetTypeInfo().GetFields(BindingFlags.Instance | BindingFlags.Public))
-                d.Add(f.Name, new MyFieldInfo(f/*, prefix*/));
-
-            // Any autoprops should be treated just as if they were a field
-            foreach (var p in t.GetTypeInfo().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            foreach (var m in ColumnMembers(t))
             {
-                var getMethod = p.GetMethod;
-                if (getMethod == null) continue;
-                if (!getMethod.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute))) continue;
-                var setMethod = p.SetMethod;
-                if (setMethod == null) continue;
-                if (!setMethod.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute))) continue;
-
-                d.Add(p.Name, new MyFieldInfo(p/*, prefix*/));
+                if (m is FieldInfo f) d.Add(f.Name, new MyFieldInfo(f/*, prefix*/));
+                else d.Add(m.Name, new MyFieldInfo((PropertyInfo)m/*, prefix*/));
             }
 
             if (!this.Fields.Any())
@@ -681,6 +671,29 @@ namespace System.Runtime.CompilerServices
             this.RepresentationFor = t;
             this.noFields = true;
             this.PseudoField = new MyFieldInfo(t, pseudoFieldName);
+        }
+
+        /// <summary>
+        /// The members that get a column, each named after its member: the public instance fields, then the public
+        /// instance auto-properties (any autoprop is treated just as if it were a field). The columnar type check
+        /// uses the same list, so that it refuses a type with two members of one name.
+        /// </summary>
+        internal static IEnumerable<MemberInfo> ColumnMembers(Type t)
+        {
+            foreach (var f in t.GetTypeInfo().GetFields(BindingFlags.Instance | BindingFlags.Public))
+                yield return f;
+
+            foreach (var p in t.GetTypeInfo().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                var getMethod = p.GetMethod;
+                if (getMethod == null) continue;
+                if (!getMethod.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute))) continue;
+                var setMethod = p.SetMethod;
+                if (setMethod == null) continue;
+                if (!setMethod.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute))) continue;
+
+                yield return p;
+            }
         }
     }
 

@@ -440,13 +440,11 @@ namespace SimpleTesting
             : base(new ConfigModifier().ForceRowBasedExecution(false).DontFallBackToRowBasedExecution(true), afterIngress: true, requireColumnar: true) { }
     }
 
-    // Input types that hide a base member with new. These run in row mode only: columnar ingress throws
-    // ArgumentException for these two input types, because their column layout would hold two members named Hidden.
-    [TestClass]
-    public class UnpivotHiddenMemberTests : TestWithConfigSettingsAndMemoryLeakDetection
+    // Input types that hide a base member with new. Their column layout would hold two members named Hidden, so
+    // Trill refuses columnar mode for them, and these queries run in row mode in both test classes.
+    public abstract class UnpivotHiddenMemberTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
     {
-        public UnpivotHiddenMemberTests()
-            : base(new ConfigModifier().ForceRowBasedExecution(true).DontFallBackToRowBasedExecution(true)) { }
+        internal UnpivotHiddenMemberTestsBase(ConfigModifier modifier) : base(modifier) { }
 
         // A property hidden with new, whose types do not fit the value field, is ignored rather than looked up by name.
         [TestMethod, TestCategory("Gated")]
@@ -477,5 +475,21 @@ namespace SimpleTesting
                 .Select(e => e.Payload.Key + ":" + e.Payload.Attribute + "=" + e.Payload.Value)
                 .ToEnumerable()
                 .ToList();
+    }
+
+    [TestClass]
+    public class UnpivotHiddenMemberTestsRow : UnpivotHiddenMemberTestsBase
+    {
+        public UnpivotHiddenMemberTestsRow()
+            : base(new ConfigModifier().ForceRowBasedExecution(true).DontFallBackToRowBasedExecution(true)) { }
+    }
+
+    // Row mode is not forced and fallback is disabled. Refusing the input type is not a code generation failure,
+    // so the queries run in row mode rather than throw.
+    [TestClass]
+    public class UnpivotHiddenMemberTestsColumnar : UnpivotHiddenMemberTestsBase
+    {
+        public UnpivotHiddenMemberTestsColumnar()
+            : base(new ConfigModifier().ForceRowBasedExecution(false).DontFallBackToRowBasedExecution(true)) { }
     }
 }
