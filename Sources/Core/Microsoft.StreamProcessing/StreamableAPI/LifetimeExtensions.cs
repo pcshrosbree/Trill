@@ -169,12 +169,26 @@ namespace Microsoft.StreamProcessing
         /// arrive within a specified timeout period. Once a timeout period elapses with no data (for a given grouping key),
         /// the window is closed.
         /// </summary>
+        /// <remarks>
+        /// <para>A positive <paramref name="maxDuration"/> also cuts long sessions, at a multiple of
+        /// <paramref name="maxDuration"/> rather than at a session's start plus <paramref name="maxDuration"/>. A session
+        /// ends at its timeout or at its cut point, whichever comes first. A session's first event sets its cut point.
+        /// If the session begins after a timeout, the cut point is the first multiple of <paramref name="maxDuration"/>
+        /// that is at least <paramref name="maxDuration"/> after that event, so the session can last almost twice
+        /// <paramref name="maxDuration"/>. An event at or after the cut point that starts less than
+        /// <paramref name="timeout"/> after the previous event continues the session in a new one, whose cut point is
+        /// the first multiple of <paramref name="maxDuration"/> after that event.</para>
+        /// <para>Every mode gives each event the same lifetime, but not the same kind of output event. On a stream with no
+        /// grouping key, row mode emits each event as one interval event. Columnar mode, and both modes inside
+        /// <c>GroupApply</c>, emit each event as a start edge and a later end edge.</para>
+        /// </remarks>
         /// <typeparam name="TKey">Type of (mapping) key in the stream</typeparam>
         /// <typeparam name="TPayload">Type of payload in the stream</typeparam>
         /// <param name="source">Input stream</param>
         /// <param name="timeout">Timeout for closing the current session; must be positive</param>
-        /// <param name="maxDuration">The max duration of a session timeout window; 0 or less means no limit, which stands
-        /// for <see cref="StreamEvent.InfinitySyncTime"/>. The max duration must be greater than <paramref name="timeout"/>.</param>
+        /// <param name="maxDuration">The max duration of a session timeout window, which cuts long sessions at
+        /// multiples of itself; 0 or less means no limit, which stands for <see cref="StreamEvent.InfinitySyncTime"/>.
+        /// The max duration must be greater than <paramref name="timeout"/>.</param>
         /// <returns>Result (output) stream</returns>
         /// <exception cref="ArgumentException"><paramref name="timeout"/> is 0 or less, or the max duration (with 0 or less
         /// taken as <see cref="StreamEvent.InfinitySyncTime"/>) is not greater than <paramref name="timeout"/>.</exception>
