@@ -269,7 +269,11 @@ using Microsoft.StreamProcessing.Internal.Collections;
                 var v = kv.Value.ExpressionToCSharp();
                 if (f.OptimizeString())
                 { 
-            this.Write("                    dest_");
+            this.Write("                    while (dest_");
+            this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
+            this.Write(".Count < i) dest_");
+            this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
+            this.Write(".AddString(string.Empty);\r\n                    dest_");
             this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
             this.Write(".AddString(");
             this.Write(this.ToStringHelper.ToStringWithCulture(v));

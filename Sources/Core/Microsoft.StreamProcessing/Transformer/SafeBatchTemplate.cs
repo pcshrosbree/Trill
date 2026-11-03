@@ -1391,7 +1391,11 @@ if (f.Type == this.payloadType) {
  if (payloadIsAnon) { 
  if (f.OptimizeString()) { 
             this.Write("\r\n        //if (index != Count) throw new InvalidOperationException(\"Bad invocati" +
-                    "on of setter with multi-strings\");\r\n        this.");
+                    "on of setter with multi-strings\");\r\n        while (this.");
+            this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
+            this.Write(".Count < index) this.");
+            this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
+            this.Write(".AddString(string.Empty);\r\n        this.");
             this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
             this.Write(".AddString((");
             this.Write(this.ToStringHelper.ToStringWithCulture(f.Type.GetCSharpSourceSyntax()));
@@ -1411,7 +1415,11 @@ if (f.Type == this.payloadType) {
  } else { 
  if (f.OptimizeString()) { 
             this.Write("\r\n        //if (index != Count) throw new InvalidOperationException(\"Bad invocati" +
-                    "on of setter with multi-strings\");\r\n        this.");
+                    "on of setter with multi-strings\");\r\n        while (this.");
+            this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
+            this.Write(".Count < index) this.");
+            this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
+            this.Write(".AddString(string.Empty);\r\n        this.");
             this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
             this.Write(".AddString(value.");
             this.Write(this.ToStringHelper.ToStringWithCulture(f.OriginalName));

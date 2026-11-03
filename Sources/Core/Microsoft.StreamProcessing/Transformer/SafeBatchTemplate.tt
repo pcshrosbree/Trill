@@ -1059,6 +1059,7 @@ public override <#= TPAYLOAD #> this[int index]
 <# if (f.OptimizeString()) { #>
 
         //if (index != Count) throw new InvalidOperationException("Bad invocation of setter with multi-strings");
+        while (this.<#= f.Name #>.Count < index) this.<#= f.Name #>.AddString(string.Empty);
         this.<#= f.Name #>.AddString((<#= f.Type.GetCSharpSourceSyntax() #>) <#= f.OriginalName #>_Property.GetValue(value, null));
 <# } else { #>
 
@@ -1069,6 +1070,7 @@ public override <#= TPAYLOAD #> this[int index]
 <# if (f.OptimizeString()) { #>
 
         //if (index != Count) throw new InvalidOperationException("Bad invocation of setter with multi-strings");
+        while (this.<#= f.Name #>.Count < index) this.<#= f.Name #>.AddString(string.Empty);
         this.<#= f.Name #>.AddString(value.<#= f.OriginalName #>);
 <# } else { #>
 

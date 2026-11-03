@@ -175,6 +175,7 @@ internal sealed class <#= className #><#= genericParameters #> : UnaryPipe<<#= T
                 var v = kv.Value.ExpressionToCSharp();
                 if (f.OptimizeString())
                 { #>
+                    while (dest_<#= f.Name #>.Count < i) dest_<#= f.Name #>.AddString(string.Empty);
                     dest_<#= f.Name #>.AddString(<#= v #>);
 <#              }
                 else
