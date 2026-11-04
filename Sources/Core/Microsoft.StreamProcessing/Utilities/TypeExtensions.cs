@@ -465,6 +465,11 @@ namespace Microsoft.StreamProcessing
             // types say they are not visible.
             if (!type.IsVisible) return "the type is not public";
 
+            // An inline array holds more elements than the one field reflection returns, so its columns would keep
+            // only the first. The attribute is matched by name, because not every target framework defines it.
+            if (typeInfo.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.InlineArrayAttribute"))
+                return "the type is an inline array";
+
             // The type must be an "open" container: that is, its state is just the value
             // of all of its fields and autoprops. Otherwise we cannot guarantee that we can
             // reconstitute a value from its columnar representation.
