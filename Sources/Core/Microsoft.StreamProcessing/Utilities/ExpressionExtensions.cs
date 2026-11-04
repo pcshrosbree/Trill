@@ -57,6 +57,33 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
+        /// Decodes generated C# text so that a plain search finds every spelling of a name. In an identifier, C# reads
+        /// a \u or \U escape as the character it names and ignores formatting characters, as the C# specification's
+        /// section on identifiers says. A leading '@' needs nothing, since the name follows it in the text.
+        /// </summary>
+        internal static string DecodeIdentifiers(string name)
+        {
+            var key = new StringBuilder();
+            for (int i = 0; i < name.Length; i++)
+            {
+                var digits = name[i] == '\\' && i + 1 < name.Length ? (name[i + 1] == 'u' ? 4 : name[i + 1] == 'U' ? 8 : 0) : 0;
+                if (digits > 0 && i + 2 + digits <= name.Length
+                    && int.TryParse(name.Substring(i + 2, digits), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var code)
+                    && (digits == 4 || (code >= 0 && code <= 0x10FFFF && (code < 0xD800 || code > 0xDFFF))))
+                {
+                    key.Append(digits == 4 ? ((char)code).ToString() : char.ConvertFromUtf32(code));
+                    i += 1 + digits;
+                }
+                else
+                {
+                    key.Append(name[i]);
+                }
+            }
+
+            return new string(key.ToString().Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format).ToArray());
+        }
+
+        /// <summary>
         /// Given an expression, <paramref name="e"/>, returns a string that
         /// should be acceptable to the C# compiler and which has the same
         /// semantics as <paramref name="e"/>.

@@ -471,7 +471,10 @@ namespace Microsoft.StreamProcessing
 
         public FuseModule FuseWhere<TPayload>(Expression<Func<TPayload, bool>> expression)
         {
-            if (this.expressions.Count == 0 || this.expressions[this.expressions.Count - 1].category != ExpressionCategory.Where)
+            // A Where over a struct payload keeps an entry of its own, so that each predicate gets its own copy of
+            // the payload in Coalesce.
+            if (this.expressions.Count == 0 || this.expressions[this.expressions.Count - 1].category != ExpressionCategory.Where
+                || typeof(TPayload).GetTypeInfo().IsValueType)
             {
                 this.expressions.Add(new ExpressionProfile
                 {
@@ -520,6 +523,10 @@ namespace Microsoft.StreamProcessing
         }
 
         public Expression<Action<long, long, TPayload, TKey>> Coalesce<TPayload, TResult, TKey>(Expression<Action<long, long, TResult, TKey>> action, bool canBePunctuation = false)
+            => Coalesce<TPayload, TResult, TKey>(action, canBePunctuation, false);
+
+        // asSource is true when the result becomes C# source text, where variable names matter.
+        private Expression<Action<long, long, TPayload, TKey>> Coalesce<TPayload, TResult, TKey>(Expression<Action<long, long, TResult, TKey>> action, bool canBePunctuation, bool asSource)
         {
             if (this.InputType != null && typeof(TPayload) != this.InputType) throw new InvalidOperationException();
             if (this.OutputType != null && typeof(TResult) != this.OutputType) throw new InvalidOperationException();
@@ -613,9 +620,32 @@ namespace Microsoft.StreamProcessing
 
                     case ExpressionCategory.Where:
                         {
-                            currentStatement = Expression.IfThen(
-                                profile.expression.ReplaceParametersInBody(parameter),
-                                currentStatement);
+                            if (parameter.Type.GetTypeInfo().IsValueType)
+                            {
+                                // The predicate gets a copy of a struct payload, as a separate Where does, so that a
+                                // change it makes does not reach the stored value. In C# source, the copy's name occurs
+                                // nowhere in the code for the predicate or for the statements inside it, so it hides no
+                                // name they use, such as a nested lambda's parameter or a type.
+                                var name = "wherePayload";
+                                if (asSource)
+                                {
+                                    var text = ExpressionExtensions.DecodeIdentifiers(profile.expression.ExpressionToCSharp() + " " + currentStatement.ExpressionToCSharp());
+                                    for (int n = 1; text.Contains(name); n++) name = "wherePayload" + n;
+                                }
+
+                                var copy = Expression.Variable(parameter.Type, name);
+                                currentStatement = Expression.Block(
+                                    new[] { copy },
+                                    Expression.Assign(copy, parameter),
+                                    Expression.IfThen(profile.expression.ReplaceParametersInBody(copy), currentStatement));
+                            }
+                            else
+                            {
+                                currentStatement = Expression.IfThen(
+                                    profile.expression.ReplaceParametersInBody(parameter),
+                                    currentStatement);
+                            }
+
                             break;
                         }
 
@@ -648,7 +678,7 @@ namespace Microsoft.StreamProcessing
         public string Coalesce<TPayload, TResult, TKey>(string startText, string endText, string payloadText, string keyText, out string leadingText, out string trailingText)
         {
             Expression<Action<long, long, TResult, TKey>> placeholder = (generatedStartTimeVariable, generatedEndTimeVariable, transformedValue, generatedKeyVariable) => PlaceholderMethod.Foo();
-            var c = Coalesce<TPayload, TResult, TKey>(placeholder, false);
+            var c = Coalesce<TPayload, TResult, TKey>(placeholder, false, true);
             var strings = c.Body.ExpressionToCSharp().Split(new string[] { PlaceholderMethod.Text }, StringSplitOptions.None);
             var start = "var " + c.Parameters[0].Name + " = " + startText + ";";
             var end = "var " + c.Parameters[1].Name + " = " + endText + ";";

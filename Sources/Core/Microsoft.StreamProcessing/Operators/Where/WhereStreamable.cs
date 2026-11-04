@@ -5,6 +5,7 @@
 using System;
 using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.StreamProcessing.Internal.Collections;
 
 namespace Microsoft.StreamProcessing
@@ -38,6 +39,16 @@ namespace Microsoft.StreamProcessing
 
             if (!typeOfTSource.CanRepresentAsColumnar()) return RefuseType(typeOfTSource);
             if (typeOfTKey.GetPartitionType() != null) return RefusePartitioned();
+
+            // A predicate that can write into a struct payload's columns runs on a per-row copy, which the generated
+            // code builds with the type's parameterless constructor. If that constructor is not trivial, the Where
+            // runs in row mode, where the predicate gets a plain copy.
+            var constructor = typeOfTSource.GetConstructor(Type.EmptyTypes);
+            if (typeOfTSource.GetTypeInfo().IsValueType && constructor != null && !constructor.IsTrivialParameterlessConstructor()
+                && ColumnWriteFinder.Find(this.Predicate, new ColumnarRepresentation(typeOfTSource)))
+            {
+                return RefuseUnsupported("the predicate can change a struct payload whose parameterless constructor is not trivial");
+            }
 
             var lookupKey = CacheKey.Create(this.Predicate.ExpressionToCSharp());
 
