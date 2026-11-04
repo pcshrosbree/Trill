@@ -285,13 +285,14 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
-        /// Converts a stream of row oriented batches into a stream of columnar batches
+        /// Converts a stream of row oriented batches into a stream of columnar batches. A stream whose payload type
+        /// columnar mode cannot hold stays in rows, as the public operators keep it.
         /// </summary>
         internal static IStreamable<TKey, TPayload> RowToColumn<TKey, TPayload>(this IStreamable<TKey, TPayload> source)
         {
             Invariant.IsNotNull(source, nameof(source));
 
-            return source.Properties.IsColumnar
+            return source.Properties.IsColumnar || !typeof(TPayload).CanRepresentAsColumnar()
                 ? source
                 : new RowToColumnStreamable<TKey, TPayload>(source);
         }
