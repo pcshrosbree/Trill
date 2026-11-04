@@ -222,6 +222,40 @@ namespace Microsoft.StreamProcessing
             return false;
         }
 
+        // True only if the IL is nops, ldarg.0, a call to a trivial base parameterless constructor, nops and ret.
+        public static bool IsTrivialParameterlessConstructor(this ConstructorInfo constructor)
+        {
+            if (constructor.DeclaringType == typeof(object)) return true;
+            if (constructor.IsStatic || constructor.GetParameters().Length != 0) return false;
+
+            byte[] il;
+            MethodBase callee;
+            try
+            {
+                il = constructor.GetMethodBody()?.GetILAsByteArray();
+                if (il == null) return false;
+
+                int i = 0;
+                while (i < il.Length && il[i] == 0x00) i++;
+                if (i + 6 > il.Length || il[i] != 0x02 || il[i + 1] != 0x28) return false;
+                int token = BitConverter.ToInt32(il, i + 2);
+                i += 6;
+                while (i < il.Length && il[i] == 0x00) i++;
+                if (i != il.Length - 1 || il[i] != 0x2A) return false;
+
+                var type = constructor.DeclaringType;
+                callee = constructor.Module.ResolveMethod(token, type.IsGenericType ? type.GetGenericArguments() : null, null);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            return callee is ConstructorInfo baseConstructor
+                && baseConstructor.DeclaringType == constructor.DeclaringType.BaseType
+                && baseConstructor.IsTrivialParameterlessConstructor();
+        }
+
         /// <summary>
         /// Gets all fields of the type.
         /// </summary>

@@ -144,8 +144,10 @@ namespace Microsoft.StreamProcessing
             // TODO: See if this can be unified with the code above for anonymous types.
             if (body is MemberInitExpression memberInit && !this.resultTypeInformation.noFields)
             {
-                // No column can hold what a constructor does with its arguments.
-                if (memberInit.NewExpression.Arguments.Count > 0)
+                // No column can hold what a constructor does with its arguments, or what a parameterless one sets.
+                var constructor = memberInit.NewExpression.Constructor;
+                if (memberInit.NewExpression.Arguments.Count > 0
+                    || (constructor != null && !constructor.IsTrivialParameterlessConstructor()))
                 {
                     this.error = true;
                     return;
