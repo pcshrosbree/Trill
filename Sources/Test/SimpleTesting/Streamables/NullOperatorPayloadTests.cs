@@ -57,7 +57,7 @@ namespace SimpleTesting
 
         [TestMethod, TestCategory("Gated")]
         public void AtemporalArrayIngressOnTheWallClock()
-            => Check(Segment(Readings()).ToAtemporalArrayStreamable(TimelinePolicy.WallClock(TimeSpan.FromSeconds(1)), OnCompletedPolicy.EndOfStream));
+            => Check(Segment(Readings()).ToAtemporalArrayStreamable(TimelinePolicy.WallClock(), OnCompletedPolicy.EndOfStream));
 
         [TestMethod, TestCategory("Gated")]
         public void AtemporalArrayIngressInSequence()

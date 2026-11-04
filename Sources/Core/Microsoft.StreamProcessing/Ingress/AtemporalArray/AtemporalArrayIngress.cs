@@ -62,15 +62,17 @@ namespace Microsoft.StreamProcessing
         {
             Contract.EnsuresOnThrow<IngressException>(true);
 
+            timelinePolicy = timelinePolicy ?? TimelinePolicy.WallClock();
+
             // For the moment, there is no way to support array-based ingress with a timeline policy and a punctuation policy
-            if (timelinePolicy.timelineEnum == TimelineEnum.WallClock && timelinePolicy.punctuationInterval == default(TimeSpan))
+            if (timelinePolicy.timelineEnum == TimelineEnum.WallClock && timelinePolicy.punctuationInterval != default(TimeSpan))
             {
                 throw new NotSupportedException("There is currently no support for array-based ingress based on clock time with punctuations.  For the moment, either switch to a sequence-based policy or remove the punctuation period parameter.");
             }
             return new MonotonicArrayIngressStreamable<TPayload>(
                 streamEvents,
                 completedPolicy,
-                timelinePolicy ?? TimelinePolicy.WallClock(),
+                timelinePolicy,
                 container,
                 identifier);
         }
