@@ -619,6 +619,7 @@ namespace Microsoft.StreamProcessing
             if (this.key != null) this.key.col[this.Count] = default;
             if (this.payload != null) this.payload.col[this.Count] = default;
             this.hash.col[this.Count] = 0;
+            this.bitvector.col[this.Count >> 6] |= 1L << (this.Count & 0x3f);
             this.Count++;
             return this.Count == this.vsync.col.Length;
         }
