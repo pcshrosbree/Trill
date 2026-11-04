@@ -333,8 +333,10 @@ public sealed class PageClaimTests
 
     // row-mode.md: a payload type with a read-only field reports TypeNotColumnar once, from the
     // ingress, with "field Sensor is read-only"; operators after it add no report, except a
-    // Where, Select or constant AlterEventDuration fused into the ingress, which reports again
-    // (the function overloads are not fused); property rules apply per property; ToString
+    // Where, Select, SelectByKey, SelectMany or SelectManyByKey (with an IEnumerable selector) or
+    // constant AlterEventDuration fused into the ingress, which reports again: the original reason
+    // for an int result, NotSupported for new { r.Value } (the function overloads are not
+    // fused); property rules apply per property; ToString
     // reads "Row mode: <operator> (TypeNotColumnar): field Sensor is read-only"; and with
     // ForceRowBasedExecution there are no reports.
     [TestMethod]
@@ -361,17 +363,32 @@ public sealed class PageClaimTests
             ingress.ShiftEventLifetime(1).Count();
             Assert.AreEqual(0, reports.Count, string.Join("\n", reports));
 
-            // A Where, Select or AlterEventDuration directly after it is fused into a new
-            // ingress, which reports the same reason again.
+            // A Where, Select, SelectByKey, SelectMany, SelectManyByKey or AlterEventDuration directly
+            // after it is fused into a new ingress. The new ingress checks its result type first; here that
+            // is Reading itself or a type columnar mode supports, so it reports the original reason again.
             foreach (var fused in new Func<IStreamable<Empty, Reading>, object>[]
-                { s => s.Where(r => r.Value > 0), s => s.Select(r => r.Value), s => s.AlterEventDuration(2) })
+                {
+                    s => s.Where(r => r.Value > 0), s => s.Select(r => r.Value), s => s.SelectByKey((k, r) => r.Value),
+                    s => s.SelectMany(r => new[] { r.Value }), s => s.SelectManyByKey((k, r) => new[] { r.Value }),
+                    s => s.AlterEventDuration(2),
+                })
             {
                 reports.Clear();
                 fused(ingress);
                 Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
                 Assert.AreNotSame(ingress, reports[0].Operator);
+                Assert.AreEqual(RowModeReason.TypeNotColumnar, reports[0].Reason);
                 Assert.AreEqual("field Sensor is read-only", reports[0].Detail);
             }
+
+            // The new ingress checks the result type first, so an anonymous result type is reported
+            // in place of the original reason.
+            reports.Clear();
+            ingress.Select(r => new { r.Value });
+            Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
+            Assert.AreNotSame(ingress, reports[0].Operator);
+            Assert.AreEqual(RowModeReason.NotSupported, reports[0].Reason);
+            Assert.AreEqual("the ingress result type is an anonymous type", reports[0].Detail);
 
             // The AlterEventDuration overloads that take a function are not fused.
             reports.Clear();
