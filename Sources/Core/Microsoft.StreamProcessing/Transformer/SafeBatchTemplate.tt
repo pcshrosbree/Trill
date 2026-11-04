@@ -554,7 +554,7 @@ if (f.Type == this.payloadType) {
             key.col[count] = partitionConstructor(partition);
             hash.col[count] = partition.GetHashCode();
             var payload = largeBatch.Array[localOffset].Payload;
-            if (largeBatch.Array[localOffset].OtherTime == long.MinValue) {
+            if (largeBatch.Array[localOffset].OtherTime < 0) {
                 bitvector.col[count >> 6] |= (1L << (count & 0x3f));
             }
 <#
