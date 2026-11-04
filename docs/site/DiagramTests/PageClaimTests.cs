@@ -165,6 +165,13 @@ public sealed class HidesNameOfSameType : AddsNameProperty
     public new string Name { get; set; }
 }
 
+/// <summary>row-mode.md's inline-array rule: two ints stored inline, of which reflection returns only the first.</summary>
+[System.Runtime.CompilerServices.InlineArray(2)]
+public struct TwoInts
+{
+    public int First;
+}
+
 /// <summary>row-mode.md's example payload: its read-only field keeps it out of columnar mode.</summary>
 public sealed class Reading
 {
@@ -480,6 +487,35 @@ public sealed class PageClaimTests
             new[] { StreamEvent.CreateInterval(1, 5, new HidesNameOfSameType()) }.ToObservable().ToStreamable();
             Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
             Assert.AreEqual("property Name of base class AddsNameProperty has no column", reports[0].Detail);
+        }
+        finally
+        {
+            Config.RowModeReporter = null;
+            Config.ForceRowBasedExecution = true;
+        }
+    }
+
+    // row-mode.md: an inline array reports "the type is an inline array", and row mode keeps both
+    // of its elements.
+    [TestMethod]
+    [DoNotParallelize]
+    public void RowModeInlineArrayRule()
+    {
+        var reports = new List<RowModeReport>();
+        try
+        {
+            Config.RowModeReporter = reports.Add;
+            Config.ForceRowBasedExecution = false;
+            var pair = default(TwoInts);
+            pair[0] = 3;
+            pair[1] = 4;
+            var output = new[] { StreamEvent.CreateInterval(1, 5, pair) }.ToObservable().ToStreamable()
+                .ToStreamEventObservable().Where(e => e.IsData).Select(e => e.Payload[0] + "/" + e.Payload[1]).ToEnumerable();
+            Assert.AreEqual("3/4", string.Join(",", output));
+            Assert.AreEqual(1, reports.Count, string.Join("\n", reports));
+            Assert.AreEqual(RowModeReason.TypeNotColumnar, reports[0].Reason);
+            Assert.AreEqual(typeof(TwoInts), reports[0].NonColumnarType);
+            Assert.AreEqual("the type is an inline array", reports[0].Detail);
         }
         finally
         {
