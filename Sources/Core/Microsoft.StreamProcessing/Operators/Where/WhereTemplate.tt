@@ -91,7 +91,6 @@ internal sealed class <#= className #><#= genericParameters #> : UnaryPipe<<#= T
         var count = batch.Count;
         batch.bitvector = batch.bitvector.MakeWritable(this.pool.bitvectorPool);
 
-        <# if (!this.noTransformation) { #>
         <# foreach (var f in this.fields) { #>
 
         <# if (f.canBeFixed) { #>
@@ -107,7 +106,6 @@ internal sealed class <#= className #><#= genericParameters #> : UnaryPipe<<#= T
         var <#= f.Name #>_col = sourceBatch.<#= f.Name #>.col;
         <# } #>
 
-        <# } #>
         <# } #>
         <# } #>
 
@@ -129,11 +127,7 @@ internal sealed class <#= className #><#= genericParameters #> : UnaryPipe<<#= T
                     <#= this.multiStringWrapperInit #>
 
                     <# if (this.noTransformation) { #>
-                    var <#= PARAMETER #> = new <#= TPayload #>();
-                    <# foreach (var f in this.fields) { #>
-
-                    <#= PARAMETER #>.<#= f.OriginalName #> = sourceBatch.<#= f.Name #>.col[i];
-                    <# } #>
+                    var <#= PARAMETER #> = <#= this.rebuiltPayload #>;
                     <# } #>
 
                     if (!(<#= PREDICATE #>))
@@ -148,11 +142,9 @@ internal sealed class <#= className #><#= genericParameters #> : UnaryPipe<<#= T
 
         <#= this.multiStringReturns #>
 
-        <# if (!this.noTransformation) { #>
         <# foreach (var f in this.fields.Where(fld => fld.canBeFixed)) { #>
 
         }
-        <# } #>
         <# } #>
 
         if (batch.RefreshCount() && (batch.Count == 0))

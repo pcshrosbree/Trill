@@ -139,8 +139,6 @@ using Microsoft.StreamProcessing.Internal.Collections;
             this.Write(this.ToStringHelper.ToStringWithCulture(genericParameters));
             this.Write(";\r\n\r\n        var count = batch.Count;\r\n        batch.bitvector = batch.bitvector." +
                     "MakeWritable(this.pool.bitvectorPool);\r\n\r\n        ");
- if (!this.noTransformation) { 
-            this.Write("        ");
  foreach (var f in this.fields) { 
             this.Write("\r\n        ");
  if (f.canBeFixed) { 
@@ -170,8 +168,6 @@ using Microsoft.StreamProcessing.Internal.Collections;
  } 
             this.Write("        ");
  } 
-            this.Write("        ");
- } 
             this.Write("\r\n        ");
             this.Write(this.ToStringHelper.ToStringWithCulture(this.multiStringInit));
             this.Write("\r\n\r\n        ");
@@ -188,19 +184,9 @@ using Microsoft.StreamProcessing.Internal.Collections;
  if (this.noTransformation) { 
             this.Write("                    var ");
             this.Write(this.ToStringHelper.ToStringWithCulture(PARAMETER));
-            this.Write(" = new ");
-            this.Write(this.ToStringHelper.ToStringWithCulture(TPayload));
-            this.Write("();\r\n                    ");
- foreach (var f in this.fields) { 
-            this.Write("\r\n                    ");
-            this.Write(this.ToStringHelper.ToStringWithCulture(PARAMETER));
-            this.Write(".");
-            this.Write(this.ToStringHelper.ToStringWithCulture(f.OriginalName));
-            this.Write(" = sourceBatch.");
-            this.Write(this.ToStringHelper.ToStringWithCulture(f.Name));
-            this.Write(".col[i];\r\n                    ");
- } 
-            this.Write("                    ");
+            this.Write(" = ");
+            this.Write(this.ToStringHelper.ToStringWithCulture(this.rebuiltPayload));
+            this.Write(";\r\n                    ");
  } 
             this.Write("\r\n                    if (!(");
             this.Write(this.ToStringHelper.ToStringWithCulture(PREDICATE));
@@ -211,12 +197,8 @@ using Microsoft.StreamProcessing.Internal.Collections;
             this.Write("\r\n        ");
             this.Write(this.ToStringHelper.ToStringWithCulture(this.multiStringReturns));
             this.Write("\r\n\r\n        ");
- if (!this.noTransformation) { 
-            this.Write("        ");
  foreach (var f in this.fields.Where(fld => fld.canBeFixed)) { 
             this.Write("\r\n        }\r\n        ");
- } 
-            this.Write("        ");
  } 
             this.Write("\r\n        if (batch.RefreshCount() && (batch.Count == 0))\r\n            batch.Free" +
                     "();\r\n        else\r\n            this.Observer.OnNext(batch);\r\n    }\r\n}\r\n");

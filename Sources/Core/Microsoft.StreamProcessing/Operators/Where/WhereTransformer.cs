@@ -5,9 +5,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 
 namespace Microsoft.StreamProcessing
 {
@@ -22,6 +24,7 @@ namespace Microsoft.StreamProcessing
         private readonly string multiStringReturns;
         private string multiStringWrapperInit;
         private string vectorOperations;
+        private string rebuiltPayload;
 
         private WhereTemplate(
             string className, Type keyType, Type payloadType, string predicate, bool noTransformation, string parameterName, string multiStringInit, string multiStringReturns)
@@ -62,8 +65,23 @@ namespace Microsoft.StreamProcessing
                 var multiStringReturns = string.Empty;
                 var multiStringWrapperInit = string.Empty;
                 string vectorOperations = null;
+                string rebuiltPayload = null;
 
-                if (Config.UseMultiString && Config.MultiStringTransforms != Config.CodegenOptions.MultiStringFlags.None)
+                Contract.Assume(stream.Predicate.Parameters.Count() == 1);
+                var parameter = stream.Predicate.Parameters.First();
+                var parameterName = parameter.ToString();
+
+                // A predicate that uses its parameter other than to read a column would rebuild the payload from the
+                // columns at each such use. It runs on one value per row instead, as in row mode. That value is built
+                // before the predicate runs, so a type whose constructor has effects of its own keeps the rebuild at
+                // each use, where the predicate reaches it. A class predicate that writes into a column keeps it too:
+                // row mode keeps that write in the stored object, as the column does, and a rebuilt local would not.
+                var constructor = sourceType.GetConstructor(Type.EmptyTypes);
+                var reconstructsPayload = Extensions.ReconstructsPayload<TKey, TPayload>(stream.Predicate)
+                    && (constructor == null || constructor.IsTrivialParameterlessConstructor())
+                    && (sourceType.GetTypeInfo().IsValueType || !ColumnWriteFinder.Find(stream.Predicate, new ColumnarRepresentation(sourceType)));
+
+                if (!reconstructsPayload && Config.UseMultiString && Config.MultiStringTransforms != Config.CodegenOptions.MultiStringFlags.None)
                 {
                     var result = MultiStringTransformer.Transform(sourceType, transformedPredicate);
                     if (result.transformedExpression != null)
@@ -77,12 +95,26 @@ namespace Microsoft.StreamProcessing
                     vectorOperations = result.vectorOperation;
                 }
 
-                Contract.Assume(stream.Predicate.Parameters.Count() == 1);
-                var parameter = stream.Predicate.Parameters.First();
-
-                var x = Extensions.TransformUnaryFunction<TKey, TPayload>(Expression.Lambda(transformedPredicate, parameter));
+                var x = reconstructsPayload ? null : Extensions.TransformUnaryFunction<TKey, TPayload>(Expression.Lambda(transformedPredicate, parameter));
                 noTransformation = x == null;
-                transformedPredicate = noTransformation ? p : x.Body;
+                if (noTransformation)
+                {
+                    // The generated code declares the payload as a local, named apart from the generated method's
+                    // other locals. The name occurs nowhere in the code generated for the predicate, the rebuild or
+                    // the two types, so it differs from every parameter there, nested lambdas' included, and never
+                    // hides a type or namespace that code names.
+                    rebuiltPayload = Extensions.TransformUnaryFunction<TKey, TPayload>(Expression.Lambda(parameter, parameter)).Body.ExpressionToCSharp();
+                    var text = DecodeIdentifiers(string.Join(" ", p.ExpressionToCSharp(), rebuiltPayload, keyType, sourceType));
+                    var name = "rowPayload";
+                    for (int n = 1; text.Contains(name); n++) name = "rowPayload" + n;
+                    var payload = Expression.Parameter(sourceType, name);
+                    transformedPredicate = ParameterSubstituter.Replace(parameter, payload, p);
+                    parameterName = payload.Name;
+                }
+                else
+                {
+                    transformedPredicate = x.Body;
+                }
 
                 var template = new WhereTemplate(
                     generatedClassName,
@@ -90,12 +122,13 @@ namespace Microsoft.StreamProcessing
                     sourceType,
                     transformedPredicate.ExpressionToCSharp(),
                     noTransformation,
-                    stream.Predicate.Parameters[0].ToString(),
+                    parameterName,
                     multiStringInit,
                     multiStringReturns)
                 {
                     multiStringWrapperInit = multiStringWrapperInit,
-                    vectorOperations = vectorOperations
+                    vectorOperations = vectorOperations,
+                    rebuiltPayload = rebuiltPayload
                 };
 
                 generatedClassName = generatedClassName.AddNumberOfNecessaryGenericArguments(keyType, sourceType);
@@ -117,6 +150,31 @@ namespace Microsoft.StreamProcessing
                 }
                 return CodegenFailure.Fallback("Where", errorMessages, e);
             }
+        }
+
+        // In an identifier, C# reads a \u or \U escape as the character it names and ignores formatting characters,
+        // as the C# specification's section on identifiers says. Decoding them lets a plain search of the text find
+        // every spelling of a name. A leading '@' needs nothing, since the name follows it in the text.
+        private static string DecodeIdentifiers(string name)
+        {
+            var key = new StringBuilder();
+            for (int i = 0; i < name.Length; i++)
+            {
+                var digits = name[i] == '\\' && i + 1 < name.Length ? (name[i + 1] == 'u' ? 4 : name[i + 1] == 'U' ? 8 : 0) : 0;
+                if (digits > 0 && i + 2 + digits <= name.Length
+                    && int.TryParse(name.Substring(i + 2, digits), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var code)
+                    && (digits == 4 || (code >= 0 && code <= 0x10FFFF && (code < 0xD800 || code > 0xDFFF))))
+                {
+                    key.Append(digits == 4 ? ((char)code).ToString() : char.ConvertFromUtf32(code));
+                    i += 1 + digits;
+                }
+                else
+                {
+                    key.Append(name[i]);
+                }
+            }
+
+            return new string(key.ToString().Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format).ToArray());
         }
     }
 }

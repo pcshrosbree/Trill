@@ -121,7 +121,7 @@ namespace Microsoft.StreamProcessing
         {
             Contract.Requires(j >= 0 && j < f.Parameters.Count);
 
-            var l_prime = MakeOneParameterColumnar<TKey, TPayload>(f, j, indexVariableName);
+            var l_prime = MakeOneParameterColumnar<TKey, TPayload>(f, j, indexVariableName, out _);
             var batchNameDictionary = new Dictionary<ParameterExpression, string>
             {
                 { l_prime.Parameters[j], batchVariableName }
@@ -163,10 +163,20 @@ namespace Microsoft.StreamProcessing
         public static LambdaExpression/*?*/ TransformFunction<TKey, TPayload>(LambdaExpression f, string indexVariableName, int parameterIndex = 0)
         {
             Contract.Requires(parameterIndex < f.Parameters.Count);
-            return MakeOneParameterColumnar<TKey, TPayload>(f, parameterIndex, indexVariableName);
+            return MakeOneParameterColumnar<TKey, TPayload>(f, parameterIndex, indexVariableName, out _);
         }
 
-        private static LambdaExpression/*?*/ MakeOneParameterColumnar<TKey, TPayload>(LambdaExpression f, int index, string indexVariableName)
+        /// <summary>
+        /// Returns true if the columnar form of the unary function <paramref name="f"/> would rebuild its parameter's
+        /// value from the columns, because <paramref name="f"/> uses the parameter other than to read one of its columns.
+        /// </summary>
+        public static bool ReconstructsPayload<TKey, TPayload>(LambdaExpression f)
+        {
+            MakeOneParameterColumnar<TKey, TPayload>(f, 0, "i", out var reconstructsValue);
+            return reconstructsValue;
+        }
+
+        private static LambdaExpression/*?*/ MakeOneParameterColumnar<TKey, TPayload>(LambdaExpression f, int index, string indexVariableName, out bool reconstructsValue)
         {
             Contract.Requires(index >= 0 && index < f.Parameters.Count);
 
@@ -181,7 +191,7 @@ namespace Microsoft.StreamProcessing
                     nameForIndexVariable = indexVariableName,
                     typeOfBatchVariable = batchType,
                 });
-            return ColumnOriented.Transform(f, d);
+            return ColumnOriented.Transform(f, d, out reconstructsValue);
         }
 
         public static string AccessExpressionForRowValue(this MyFieldInfo f, string batchVariableName, string indexVariableName)

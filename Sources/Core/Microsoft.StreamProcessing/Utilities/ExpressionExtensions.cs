@@ -1297,6 +1297,7 @@ namespace Microsoft.StreamProcessing
 
         private Dictionary<Tuple<ParameterExpression, string>, ParameterInformation> parameterTableForDecomposableTypes;
         private Dictionary<ParameterExpression, ParameterInformation> parameterTableForAtomicTypes;
+        private bool reconstructsValue;
 
         public struct SubstitutionInformation
         {
@@ -1319,6 +1320,10 @@ namespace Microsoft.StreamProcessing
         /// <param name="substitutionInformation"></param>
         /// <returns>Null if the body could not be transformed</returns>
         public static LambdaExpression/*?*/ Transform(LambdaExpression rowOrientedLambda, IDictionary<ParameterExpression, SubstitutionInformation> substitutionInformation)
+            => Transform(rowOrientedLambda, substitutionInformation, out _);
+
+        /// <summary>As the overload above, and reports whether the result rebuilds a parameter's value from its columns.</summary>
+        public static LambdaExpression/*?*/ Transform(LambdaExpression rowOrientedLambda, IDictionary<ParameterExpression, SubstitutionInformation> substitutionInformation, out bool reconstructsValue)
         {
             Contract.Requires(rowOrientedLambda != null);
             Contract.Requires(substitutionInformation != null);
@@ -1388,6 +1393,7 @@ namespace Microsoft.StreamProcessing
             var transformedBody = me.Visit(rowOrientedLambda.Body);
             var transformedParameters = rowOrientedLambda.Parameters.Select(p => parameterMapping.ContainsKey(p) ? parameterMapping[p] : p).ToArray();
             var transformedLambda = Expression.Lambda(transformedBody, transformedParameters);
+            reconstructsValue = me.reconstructsValue;
             return transformedLambda;
         }
 
@@ -1406,6 +1412,7 @@ namespace Microsoft.StreamProcessing
                 // decomposed into a columnar representation.
                 // So its value must be reconstructed from its columnar representation.
                 // Flag that this is happening so clients can decide what to do about it.
+                this.reconstructsValue = true;
                 return ReconstructValue(node);
             }
             return base.VisitParameter(node);
@@ -1489,6 +1496,147 @@ namespace Microsoft.StreamProcessing
                 return Expression.Property(a, "Item", i);
             }
             else throw new InvalidOperationException();
+        }
+    }
+
+    /// <summary>
+    /// Finds whether a lambda can write into storage of its parameter that columnar code maps to a column element:
+    /// a column member or a field inside one, or the parameter itself when it is stored in one column.
+    /// </summary>
+    internal sealed class ColumnWriteFinder : ExpressionVisitor
+    {
+        private readonly ParameterExpression parameter;
+        private readonly HashSet<string> columns; // null when the payload is stored in one column
+        private bool found;
+
+        private ColumnWriteFinder(ParameterExpression parameter, HashSet<string> columns)
+        {
+            this.parameter = parameter;
+            this.columns = columns;
+        }
+
+        public static bool Find(LambdaExpression function, ColumnarRepresentation representation)
+        {
+            var parameter = function.Parameters[0];
+            var columns = representation.noFields ? null : new HashSet<string>(representation.Fields.Values.Select(f => f.OriginalName));
+            var finder = new ColumnWriteFinder(parameter, columns);
+            finder.Visit(function.Body);
+            return finder.found;
+        }
+
+        // A method or getter called on struct storage gets that storage by reference and can change it. It cannot when
+        // the struct type is readonly, or when the member is readonly and declared on the struct itself. A member
+        // declared elsewhere, such as on an interface or on object, can run the struct's own code, which may write.
+        private static bool MayWrite(Type receiver, MethodInfo method)
+            => receiver.GetTypeInfo().IsValueType && !IsReadOnly(receiver.GetTypeInfo())
+                && !(method.DeclaringType == receiver && IsReadOnly(method));
+
+        private static bool IsReadOnly(MemberInfo member)
+            => member.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.IsReadOnlyAttribute");
+
+        protected override Expression VisitMethodCall(MethodCallExpression node)
+        {
+            if (node.Object != null && IsColumnStorage(node.Object) && MayWrite(node.Object.Type, node.Method)) this.found = true;
+            CheckByRef(node.Method.GetParameters(), node.Arguments);
+            return base.VisitMethodCall(node);
+        }
+
+        protected override Expression VisitNew(NewExpression node)
+        {
+            if (node.Constructor != null) CheckByRef(node.Constructor.GetParameters(), node.Arguments);
+            return base.VisitNew(node);
+        }
+
+        protected override Expression VisitInvocation(InvocationExpression node)
+        {
+            var invoke = node.Expression.Type.GetTypeInfo().GetMethod("Invoke");
+            if (invoke != null) CheckByRef(invoke.GetParameters(), node.Arguments);
+            return base.VisitInvocation(node);
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (node.Member is PropertyInfo property && node.Expression != null && IsColumnStorage(node.Expression)
+                && property.GetMethod != null && MayWrite(node.Expression.Type, property.GetMethod))
+            {
+                this.found = true;
+            }
+
+            return base.VisitMember(node);
+        }
+
+        protected override Expression VisitIndex(IndexExpression node)
+        {
+            if (node.Object != null && IsColumnStorage(node.Object) && node.Indexer?.GetMethod != null && MayWrite(node.Object.Type, node.Indexer.GetMethod))
+                this.found = true;
+            return base.VisitIndex(node);
+        }
+
+        protected override Expression VisitBinary(BinaryExpression node)
+        {
+            switch (node.NodeType)
+            {
+                case ExpressionType.Assign:
+                case ExpressionType.AddAssign:
+                case ExpressionType.AddAssignChecked:
+                case ExpressionType.AndAssign:
+                case ExpressionType.DivideAssign:
+                case ExpressionType.ExclusiveOrAssign:
+                case ExpressionType.LeftShiftAssign:
+                case ExpressionType.ModuloAssign:
+                case ExpressionType.MultiplyAssign:
+                case ExpressionType.MultiplyAssignChecked:
+                case ExpressionType.OrAssign:
+                case ExpressionType.PowerAssign:
+                case ExpressionType.RightShiftAssign:
+                case ExpressionType.SubtractAssign:
+                case ExpressionType.SubtractAssignChecked:
+                    if (IsWriteTarget(node.Left)) this.found = true;
+                    break;
+            }
+
+            return base.VisitBinary(node);
+        }
+
+        protected override Expression VisitUnary(UnaryExpression node)
+        {
+            switch (node.NodeType)
+            {
+                case ExpressionType.PreIncrementAssign:
+                case ExpressionType.PreDecrementAssign:
+                case ExpressionType.PostIncrementAssign:
+                case ExpressionType.PostDecrementAssign:
+                    if (IsWriteTarget(node.Operand)) this.found = true;
+                    break;
+            }
+
+            return base.VisitUnary(node);
+        }
+
+        private void CheckByRef(ParameterInfo[] parameters, ReadOnlyCollection<Expression> arguments)
+        {
+            for (int i = 0; i < parameters.Length && i < arguments.Count; i++)
+            {
+                if (parameters[i].ParameterType.IsByRef && IsColumnStorage(arguments[i])) this.found = true;
+            }
+        }
+
+        // An assignment or increment writes column storage when it targets that storage, or a member of it or an
+        // element through its indexer when the storage is a struct.
+        private bool IsWriteTarget(Expression e)
+        {
+            if (IsColumnStorage(e)) return true;
+            var receiver = e is MemberExpression member ? member.Expression : (e as IndexExpression)?.Object;
+            return receiver != null && receiver.Type.GetTypeInfo().IsValueType && IsColumnStorage(receiver);
+        }
+
+        private bool IsColumnStorage(Expression e)
+        {
+            if (e == this.parameter) return this.columns == null;
+            if (!(e is MemberExpression member)) return false;
+            if (member.Expression == this.parameter) return this.columns != null && this.columns.Contains(member.Member.Name);
+            return member.Member is FieldInfo && member.Expression != null && member.Expression.Type.GetTypeInfo().IsValueType
+                && IsColumnStorage(member.Expression);
         }
     }
 
