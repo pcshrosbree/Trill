@@ -117,6 +117,9 @@ namespace Microsoft.StreamProcessing
             ReshapingPolicy reshapingPolicy<# } #>)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+<# if (egressType != "StreamEvent") { #>
+            constructor = constructor.InlineCapturedValues();
+<# } #>
 
             if (stream is IFusibleStreamable<<#= inputKey #>, TPayload> f && f.CanFuseEgressObservable)
             {

@@ -222,6 +222,7 @@ namespace Microsoft.StreamProcessing
             string identifer)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             return new StartEdgeArrayObservable<TPayload, TResult>(stream, generator, constructor, container, identifer);
         }
@@ -330,6 +331,7 @@ namespace Microsoft.StreamProcessing
             string identifer)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             return new IntervalArrayObservable<TPayload, TResult>(stream.ToEndEdgeFreeStream(), generator, constructor, container, identifer);
         }
@@ -552,6 +554,7 @@ namespace Microsoft.StreamProcessing
             string identifer)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             return new PartitionedStartEdgeArrayObservable<TKey, TPayload, TResult>(stream, generator, constructor, container, identifer);
         }
@@ -664,6 +667,7 @@ namespace Microsoft.StreamProcessing
             string identifer)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             return new PartitionedIntervalArrayObservable<TKey, TPayload, TResult>(stream.ToEndEdgeFreeStream(), generator, constructor, container, identifer);
         }

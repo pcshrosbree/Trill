@@ -148,6 +148,10 @@ foreach (string egressType in new string[] { "StreamEvent", "StartEdge", "Interv
     } #>)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+<#  if (egressType == "StartEdge" || egressType == "Interval")
+    { #>
+            constructor = constructor.InlineCapturedValues();
+<#  } #>
 
 <#  // Non-StreamEvent methods do not use reshaping policy at all
     switch (egressType)

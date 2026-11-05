@@ -89,7 +89,7 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
 <#  if (fused) { #>
             : base(properties)
 <#  } else { #>
-            : base(StreamProperties<<#= keyType #>, <#= outputType #>>.Default<#= (m == "Interval") ? "Ingress(startEdgeExtractor, endEdgeExtractor)" : string.Empty #>.SetQueryContainer(container))
+            : base(StreamProperties<<#= keyType #>, <#= outputType #>>.Default<#= (m == "Interval") ? "Ingress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues())" : string.Empty #>.SetQueryContainer(container))
 <#  } #>
         {
             Contract.Requires(observable != null);
@@ -100,7 +100,7 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
 <#  if (m == "Interval")
     {
         if (partitioned) { #>
-            this.partitionExtractor = partitionExtractor;
+            this.partitionExtractor = partitionExtractor<#= fused ? string.Empty : ".InlineCapturedValues()" #>;
 <#      } #>
             this.startEdgeExtractor = startEdgeExtractor;
             this.endEdgeExtractor = endEdgeExtractor;
@@ -229,11 +229,11 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
 <#  if (m == "Interval")
     { #>
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty<#
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty<#
         if (partitioned)
         { #>,
-                    partitionExtractor.ExpressionToCSharp()<#
+                    partitionExtractor.CacheKeyText()<#
         } #>),
 <#  } #>
                 Tuple.Create(
@@ -293,11 +293,11 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
 <#  if (m == "Interval")
     { #>
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty<#
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty<#
         if (partitioned)
         { #>,
-                    partitionExtractor.ExpressionToCSharp()<#
+                    partitionExtractor.CacheKeyText()<#
         } #>),
 <#  } #>
                 Tuple.Create(

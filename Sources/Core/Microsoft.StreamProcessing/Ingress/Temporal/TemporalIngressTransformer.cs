@@ -169,7 +169,20 @@ namespace Microsoft.StreamProcessing
             Expression[] expressions = null;
             if (!fuseModule.IsEmpty)
             {
-                template.valueString = fuseModule.Coalesce<TSource, TResult, TKey>("value.SyncTime", "value.OtherTime", "value.Payload", template.emptyOrPartition, out template.leadingText, out template.trailingText);
+                // Coalesce writes the fused lambdas as C# now, before the template's own handler runs, so a lambda
+                // the renderer cannot write is handled here, as the template would handle it.
+                try
+                {
+                    template.valueString = fuseModule.Coalesce<TSource, TResult, TKey>("value.SyncTime", "value.OtherTime", "value.Payload", template.emptyOrPartition, out template.leadingText, out template.trailingText);
+                }
+                catch (Exception e)
+                {
+                    if (Config.CodegenOptions.DontFallBackToRowBasedExecution)
+                        throw CodegenFailure.Create(template.GetType().Name, null, e);
+
+                    return CodegenFailure.Fallback(template.GetType().Name, null, e);
+                }
+
                 template.generatedEndTimeVariable = "generatedEndTimeVariable";
                 if (Config.AllowFloatingReorderPolicy)
                 {

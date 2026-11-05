@@ -105,7 +105,7 @@ foreach (string ingressType in new string[] { "StreamEvent", "StartEdge", "Inter
         }
 
         private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload)<#
-                if (ingressType != "StreamEvent") {#>, this.constructor.Body.ExpressionToCSharp(), typeof(TResult)<# }
+                if (ingressType != "StreamEvent") {#>, this.constructor.Body.CacheKeyText(), typeof(TResult)<# }
                 if (!string.IsNullOrEmpty(partitionString)) {#>, typeof(TKey)<# }
                 #>, "<#= ingressType #>");
 

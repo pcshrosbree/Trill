@@ -377,7 +377,7 @@ namespace Microsoft.StreamProcessing
             OnCompletedPolicy onCompletedPolicy,
             QueryContainer container,
             string identifier)
-            : base(StreamProperties<Empty, TPayload>.DefaultIngress(startEdgeExtractor, endEdgeExtractor).SetQueryContainer(container))
+            : base(StreamProperties<Empty, TPayload>.DefaultIngress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues()).SetQueryContainer(container))
         {
             Contract.Requires(observable != null);
             Contract.Requires(identifier != null);
@@ -466,8 +466,8 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,
@@ -506,8 +506,8 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,
@@ -1088,14 +1088,14 @@ namespace Microsoft.StreamProcessing
             OnCompletedPolicy onCompletedPolicy,
             QueryContainer container,
             string identifier)
-            : base(StreamProperties<PartitionKey<TPartitionKey>, TPayload>.DefaultIngress(startEdgeExtractor, endEdgeExtractor).SetQueryContainer(container))
+            : base(StreamProperties<PartitionKey<TPartitionKey>, TPayload>.DefaultIngress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues()).SetQueryContainer(container))
         {
             Contract.Requires(observable != null);
             Contract.Requires(identifier != null);
 
             this.IngressSiteIdentifier = identifier;
             this.observable = observable;
-            this.partitionExtractor = partitionExtractor;
+            this.partitionExtractor = partitionExtractor.InlineCapturedValues();
             this.startEdgeExtractor = startEdgeExtractor;
             this.endEdgeExtractor = endEdgeExtractor;
             this.disorderPolicy = disorderPolicy;
@@ -1173,9 +1173,9 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty,
-                    partitionExtractor.ExpressionToCSharp()),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty,
+                    partitionExtractor.CacheKeyText()),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,
@@ -1201,9 +1201,9 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty,
-                    partitionExtractor.ExpressionToCSharp()),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty,
+                    partitionExtractor.CacheKeyText()),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,
@@ -1902,8 +1902,8 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,
@@ -1944,8 +1944,8 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,
@@ -2613,9 +2613,9 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty,
-                    partitionExtractor.ExpressionToCSharp()),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty,
+                    partitionExtractor.CacheKeyText()),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,
@@ -2641,9 +2641,9 @@ namespace Microsoft.StreamProcessing
         {
             var lookupKey = CacheKey.Create(
                 Tuple.Create(
-                    startEdgeExtractor.ExpressionToCSharp(),
-                    endEdgeExtractor != null ? endEdgeExtractor.ExpressionToCSharp() : string.Empty,
-                    partitionExtractor.ExpressionToCSharp()),
+                    startEdgeExtractor.CacheKeyText(),
+                    endEdgeExtractor != null ? endEdgeExtractor.CacheKeyText() : string.Empty,
+                    partitionExtractor.CacheKeyText()),
                 Tuple.Create(
                     fuseModule.ToString(),
                     Config.AllowFloatingReorderPolicy,

@@ -50,7 +50,7 @@ namespace Microsoft.StreamProcessing
                 return RefuseUnsupported("the predicate can change a struct payload whose parameterless constructor is not trivial");
             }
 
-            var lookupKey = CacheKey.Create(this.Predicate.ExpressionToCSharp());
+            var lookupKey = CacheKey.Create(this.Predicate.CacheKeyText());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => WhereTemplate.Generate(this));
 
@@ -59,7 +59,7 @@ namespace Microsoft.StreamProcessing
 
         private UnaryPipe<TKey, TPayload, TPayload> GetPipe(IStreamObserver<TKey, TPayload> observer)
         {
-            var lookupKey = CacheKey.Create(this.Predicate.ExpressionToCSharp());
+            var lookupKey = CacheKey.Create(this.Predicate.CacheKeyText());
 
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => WhereTemplate.Generate(this));
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new WherePlanNode(p, o, typeof(TKey), typeof(TPayload), this.Predicate, true, generatedPipeType.Item2));
@@ -69,6 +69,6 @@ namespace Microsoft.StreamProcessing
             return returnValue;
         }
 
-        public override string ToString() => "Where(" + this.Predicate.ExpressionToCSharp() + ")";
+        public override string ToString() => "Where(" + this.Predicate.CacheKeyText() + ")";
     }
 }

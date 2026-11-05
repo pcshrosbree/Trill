@@ -105,8 +105,8 @@ namespace Microsoft.StreamProcessing
             QueryContainer container,
             string identifier)
             : base((Config.ForceRowBasedExecution || !typeof(TPayload).CanRepresentAsColumnar()
-                ? StreamProperties<Empty, TPayload>.DefaultIngress(startEdgeExtractor, endEdgeExtractor).ToRowBased()
-                : StreamProperties<Empty, TPayload>.DefaultIngress(startEdgeExtractor, endEdgeExtractor)).SetQueryContainer(container))
+                ? StreamProperties<Empty, TPayload>.DefaultIngress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues()).ToRowBased()
+                : StreamProperties<Empty, TPayload>.DefaultIngress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues())).SetQueryContainer(container))
         {
             Contract.Requires(observable != null);
             Contract.Requires(identifier != null);
@@ -271,15 +271,15 @@ namespace Microsoft.StreamProcessing
             QueryContainer container,
             string identifier)
             : base((Config.ForceRowBasedExecution || !typeof(TPayload).CanRepresentAsColumnar()
-                ? StreamProperties<PartitionKey<TPartitionKey>, TPayload>.DefaultIngress(startEdgeExtractor, endEdgeExtractor).ToRowBased()
-                : StreamProperties<PartitionKey<TPartitionKey>, TPayload>.DefaultIngress(startEdgeExtractor, endEdgeExtractor)).SetQueryContainer(container))
+                ? StreamProperties<PartitionKey<TPartitionKey>, TPayload>.DefaultIngress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues()).ToRowBased()
+                : StreamProperties<PartitionKey<TPartitionKey>, TPayload>.DefaultIngress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues())).SetQueryContainer(container))
         {
             Contract.Requires(observable != null);
             Contract.Requires(identifier != null);
 
             this.IngressSiteIdentifier = identifier;
             this.observable = observable;
-            this.partitionExtractor = partitionExtractor;
+            this.partitionExtractor = partitionExtractor.InlineCapturedValues();
             this.startEdgeExtractor = startEdgeExtractor;
             this.endEdgeExtractor = endEdgeExtractor;
             this.onCompletedPolicy = onCompletedPolicy;

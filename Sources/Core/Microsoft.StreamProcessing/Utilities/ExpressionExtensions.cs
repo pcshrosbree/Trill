@@ -452,10 +452,10 @@ namespace Microsoft.StreamProcessing
         public static Expression<Func<TPayload, PartitionKey<TPartitionKey>>> AddPartitionKey<TPartitionKey, TPayload>(
             Expression<Func<TPayload, TPartitionKey>> expression)
         {
+            // payload => new PartitionKey<TPartitionKey>(<the extractor's body>), over the extractor's own parameter.
             Expression<Func<TPartitionKey, PartitionKey<TPartitionKey>>> box = (o) => new PartitionKey<TPartitionKey>(o);
-            var newBody = new ParameterSubstituter(
-                new Dictionary<ParameterExpression, Expression> { { expression.Parameters[0], box.Body } }).Visit(expression);
-            return Expression.Lambda<Func<TPayload, PartitionKey<TPartitionKey>>>(newBody, box.Parameters);
+            var newBody = Replace(box.Parameters[0], expression.Body, box.Body);
+            return Expression.Lambda<Func<TPayload, PartitionKey<TPartitionKey>>>(newBody, expression.Parameters);
         }
 
         private ParameterSubstituter(Dictionary<ParameterExpression, Expression> arguments)

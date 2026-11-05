@@ -516,7 +516,7 @@ namespace Microsoft.StreamProcessing
                     + "OutputType:" + (item.outputType?.ToString() ?? "null") + ":"
                     + "UsesKey:" + item.hasKey.ToString() + ":"
                     + "UsesStartEdge:" + item.hasStartEdge.ToString() + ":"
-                    + "Expression:" + item.expression.ExpressionToCSharp() + Environment.NewLine;
+                    + "Expression:" + item.expression.CacheKeyText() + Environment.NewLine;
             }
             if (this.durationAdjustment != null) output = output + "Duration:" + this.durationAdjustment + Environment.NewLine;
             return output;

@@ -156,7 +156,7 @@ namespace Microsoft.StreamProcessing
             return this.source.Subscribe(pipe);
         }
 
-        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.ExpressionToCSharp(), typeof(TResult), "StartEdge");
+        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.CacheKeyText(), typeof(TResult), "StartEdge");
 
         // Null if the egress can use generated code; otherwise why not.
         private RowModeRefusal ColumnarRefusal()
@@ -241,7 +241,7 @@ namespace Microsoft.StreamProcessing
             return this.source.Subscribe(pipe);
         }
 
-        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.ExpressionToCSharp(), typeof(TResult), "Interval");
+        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.CacheKeyText(), typeof(TResult), "Interval");
 
         // Null if the egress can use generated code; otherwise why not.
         private RowModeRefusal ColumnarRefusal()
@@ -415,7 +415,7 @@ namespace Microsoft.StreamProcessing
             return this.source.Subscribe(pipe);
         }
 
-        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.ExpressionToCSharp(), typeof(TResult), typeof(TKey), "StartEdge");
+        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.CacheKeyText(), typeof(TResult), typeof(TKey), "StartEdge");
 
         // Null if the egress can use generated code; otherwise why not.
         private RowModeRefusal ColumnarRefusal()
@@ -500,7 +500,7 @@ namespace Microsoft.StreamProcessing
             return this.source.Subscribe(pipe);
         }
 
-        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.ExpressionToCSharp(), typeof(TResult), typeof(TKey), "Interval");
+        private CacheKey CachedPipeLookupKey() => CacheKey.Create(typeof(TPayload), this.constructor.Body.CacheKeyText(), typeof(TResult), typeof(TKey), "Interval");
 
         // Null if the egress can use generated code; otherwise why not.
         private RowModeRefusal ColumnarRefusal()

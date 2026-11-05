@@ -59,8 +59,8 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
             QueryContainer container,
             string identifier)
             : base((Config.ForceRowBasedExecution || !typeof(TPayload).CanRepresentAsColumnar()
-                ? StreamProperties<<#= keyType #>, TPayload>.Default<#= (m == "Interval") ? "Ingress(startEdgeExtractor, endEdgeExtractor)" : string.Empty #>.ToRowBased()
-                : StreamProperties<<#= keyType #>, TPayload>.Default<#= (m == "Interval") ? "Ingress(startEdgeExtractor, endEdgeExtractor)" : string.Empty #>).SetQueryContainer(container))
+                ? StreamProperties<<#= keyType #>, TPayload>.Default<#= (m == "Interval") ? "Ingress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues())" : string.Empty #>.ToRowBased()
+                : StreamProperties<<#= keyType #>, TPayload>.Default<#= (m == "Interval") ? "Ingress(startEdgeExtractor = startEdgeExtractor.InlineCapturedValues(), endEdgeExtractor = endEdgeExtractor.InlineCapturedValues())" : string.Empty #>).SetQueryContainer(container))
         {
             Contract.Requires(observable != null);
             Contract.Requires(identifier != null);
@@ -70,7 +70,7 @@ foreach (var m in new [] { "StreamEvent", "Interval" })
 <# switch (m) {
        case "Interval":
    if (!string.IsNullOrEmpty(p)) { #>
-            this.partitionExtractor = partitionExtractor;
+            this.partitionExtractor = partitionExtractor.InlineCapturedValues();
 <# } #>
             this.startEdgeExtractor = startEdgeExtractor;
             this.endEdgeExtractor = endEdgeExtractor;

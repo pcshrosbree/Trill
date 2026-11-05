@@ -120,6 +120,7 @@ namespace Microsoft.StreamProcessing
             string identifier)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             if (stream is IFusibleStreamable<Empty, TPayload> f && f.CanFuseEgressObservable)
             {
@@ -181,6 +182,7 @@ namespace Microsoft.StreamProcessing
             string identifier)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             if (stream is IFusibleStreamable<Empty, TPayload> f && f.CanFuseEgressObservable)
             {
@@ -315,6 +317,7 @@ namespace Microsoft.StreamProcessing
             string identifier)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             if (stream is IFusibleStreamable<PartitionKey<TKey>, TPayload> f && f.CanFuseEgressObservable)
             {
@@ -386,6 +389,7 @@ namespace Microsoft.StreamProcessing
             string identifier)
         {
             Invariant.IsNotNull(stream, nameof(stream));
+            constructor = constructor.InlineCapturedValues();
 
             if (stream is IFusibleStreamable<PartitionKey<TKey>, TPayload> f && f.CanFuseEgressObservable)
             {
