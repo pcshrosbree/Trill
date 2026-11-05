@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Linq.Expressions;
 
 namespace Microsoft.StreamProcessing.Sharding
@@ -32,6 +33,21 @@ namespace Microsoft.StreamProcessing.Sharding
         /// </summary>
         /// <param name="streamables"></param>
         public ShardedStreamable(IStreamable<TKey, TPayload>[] streamables) => this.streamables = streamables;
+
+        /// <summary>
+        /// Creates a sharded streamable with an optional recorded placement comparer.
+        /// </summary>
+        internal ShardedStreamable(IStreamable<TKey, TPayload>[] streamables, IEqualityComparerExpression<TKey> placementComparer)
+        {
+            this.streamables = streamables;
+            this.PlacementComparer = placementComparer;
+        }
+
+        /// <summary>
+        /// The key equality comparer that all input shards reported when the stream was redistributed, or null when no
+        /// common comparer is known, as after Shard, ReShard, ReKey, Multicast or Broadcast.
+        /// </summary>
+        internal IEqualityComparerExpression<TKey> PlacementComparer { get; }
 
         /// <summary>
         /// Constructor to create a new sharded streamable instance from an existing set of sharded streamables
@@ -79,7 +95,7 @@ namespace Microsoft.StreamProcessing.Sharding
             for (int i = 0; i < this.streamables.Length; i++)
                 result[i] = queryC(this.streamables[i]);
 
-            return new ShardedStreamable<TKey, TOutput>(result);
+            return new ShardedStreamable<TKey, TOutput>(result, this.PlacementComparer);
         }
 
         /// <summary>
@@ -90,17 +106,40 @@ namespace Microsoft.StreamProcessing.Sharding
         /// <param name="input2">The second input to the binary query</param>
         /// <param name="query">The query to evaluate</param>
         /// <returns>A new sharded streamable comprised of the output of the query</returns>
+        /// <exception cref="ShardedKeyComparerMismatchException">There is more than one shard, and both inputs were
+        /// redistributed, with different key equality comparers.</exception>
         public IShardedStreamable<TKey, TOutput> Query<TPayload2, TOutput>(
                 IShardedStreamable<TKey, TPayload2> input2,
                 Expression<Func<IStreamable<TKey, TPayload>, IStreamable<TKey, TPayload2>, IStreamable<TKey, TOutput>>> query)
         {
+            var right = (ShardedStreamable<TKey, TPayload2>)input2;
+            IEqualityComparerExpression<TKey> placementComparer = null;
+
+            // With one shard, every key is on it, so the comparers cannot separate equal keys.
+            if (this.streamables.Length > 1 && this.PlacementComparer != null && right.PlacementComparer != null)
+            {
+                if (ComparerDifference.MayDiffer(this.PlacementComparer, right.PlacementComparer))
+                {
+                    throw new ShardedKeyComparerMismatchException(
+                        "The binary Query of a sharded streamable cannot pair its two inputs: they were redistributed with "
+                        + "different key equality comparers (Equals " + this.PlacementComparer.GetEqualsExpr() + ", hash "
+                        + this.PlacementComparer.GetGetHashCodeExpr() + "; and Equals " + right.PlacementComparer.GetEqualsExpr()
+                        + ", hash " + right.PlacementComparer.GetGetHashCodeExpr() + "), so equal keys can be on different "
+                        + "shards and the query could miss matches. Give both inputs the same key equality comparer, or give "
+                        + "neither one, before they are redistributed with ReDistribute or Shuffle. For example, set it with "
+                        + "SetProperty().EqualityComparer before Shard, and Select a new payload after ReKey.");
+                }
+
+                placementComparer = this.PlacementComparer;
+            }
+
             var result = new IStreamable<TKey, TOutput>[this.streamables.Length];
             var queryC = query.Compile();
 
             for (int i = 0; i < this.streamables.Length; i++)
-                result[i] = queryC(this.streamables[i], ((ShardedStreamable<TKey, TPayload2>)input2).streamables[i]);
+                result[i] = queryC(this.streamables[i], right.streamables[i]);
 
-            return new ShardedStreamable<TKey, TOutput>(result);
+            return new ShardedStreamable<TKey, TOutput>(result, placementComparer);
         }
 
         /// <summary>
@@ -140,7 +179,8 @@ namespace Microsoft.StreamProcessing.Sharding
             for (int i = 0; i < newShardArity; i++)
                 unionResults[i] = new MultiUnionStreamable<TKey, TPayload>(broadcastResults);
 
-            return new ShardedStreamable<TKey, TPayload>(unionResults);
+            // Every shard holds every event, so no key placement applies, and a binary Query does not check this input.
+            return new ShardedStreamable<TKey, TPayload>(unionResults, placementComparer: null);
         }
 
         /// <summary>
@@ -156,7 +196,7 @@ namespace Microsoft.StreamProcessing.Sharding
             for (int i = 0; i < this.streamables.Length; i++)
                 result[i] = new SelectStreamable<TKey, TPayload, TNewPayload>(this.streamables[i], selector, false, true);
 
-            return new ShardedStreamable<TKey, TNewPayload>(result);
+            return new ShardedStreamable<TKey, TNewPayload>(result, this.PlacementComparer);
         }
 
         /// <summary>
@@ -191,7 +231,10 @@ namespace Microsoft.StreamProcessing.Sharding
             var shuffleResults = new IStreamable<TKey, TPayload>[newShardArity];
             for (int i = 0; i < newShardArity; i++)
                 shuffleResults[i] = new MultiUnionStreamable<TKey, TPayload>(shuffleL1Results);
-            return new ShardedStreamable<TKey, TPayload>(shuffleResults);
+
+            // Each event goes to the shard chosen by its stored key hash.
+            var placementComparer = ComparerDifference.Shared(this.Streamables.Select(s => s.Properties.KeyEqualityComparer));
+            return new ShardedStreamable<TKey, TPayload>(shuffleResults, placementComparer);
         }
 
         /// <summary>

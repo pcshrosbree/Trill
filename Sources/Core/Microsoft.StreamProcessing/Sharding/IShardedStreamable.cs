@@ -32,6 +32,8 @@ namespace Microsoft.StreamProcessing.Sharding
         /// <param name="input2">The second input to the binary query</param>
         /// <param name="query">The query to evaluate</param>
         /// <returns>A new sharded streamable comprised of the output of the query</returns>
+        /// <exception cref="ShardedKeyComparerMismatchException">There is more than one shard, and both inputs were
+        /// redistributed, with different key equality comparers.</exception>
         IShardedStreamable<TKey, TOutput> Query<TPayload2, TOutput>(
             IShardedStreamable<TKey, TPayload2> input2,
             Expression<Func<IStreamable<TKey, TPayload>, IStreamable<TKey, TPayload2>, IStreamable<TKey, TOutput>>> query);
