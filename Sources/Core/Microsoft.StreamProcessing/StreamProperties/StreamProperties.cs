@@ -730,14 +730,20 @@ namespace Microsoft.StreamProcessing
         }
 
         /// <summary>
+        /// The key equality comparer of a join: the inputs' comparer if they have the same one, otherwise the default.
+        /// </summary>
+        internal IEqualityComparerExpression<TKey> JoinKeyEqualityComparer<TRight>(StreamProperties<TKey, TRight> right)
+            => this.KeyEqualityComparer.ExpressionEquals(right.KeyEqualityComparer)
+                ? this.KeyEqualityComparer
+                : EqualityComparerExpression<TKey>.Default;
+
+        /// <summary>
         /// Join
         /// </summary>
         internal StreamProperties<TKey, TResult> Join<TRight, TResult>
             (StreamProperties<TKey, TRight> right, Expression<Func<TPayload, TRight, TResult>> selector)
         {
-            var newKeyEqualityComparer = this.KeyEqualityComparer.ExpressionEquals(right.KeyEqualityComparer)
-                ? this.KeyEqualityComparer
-                : EqualityComparerExpression<TKey>.Default;
+            var newKeyEqualityComparer = JoinKeyEqualityComparer(right);
 
             var newKeyComparer =
                 ((this.KeyComparer != null) && (right.KeyComparer != null)

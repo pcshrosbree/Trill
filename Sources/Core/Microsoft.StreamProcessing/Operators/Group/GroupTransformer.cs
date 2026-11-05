@@ -120,9 +120,11 @@ namespace Microsoft.StreamProcessing
                     payloadMightBeNull = typeOfTSource.CanContainNull()
                 };
 
+                // The MultiString hash vector computes the default string hash, so it can stand in only for that hash.
                 if (!nested && Config.UseMultiString &&
                     typeOfTInnerKey.Equals(typeof(string)) &&
-                    keySelector.IsSimpleFieldOrPropertyAccess())
+                    keySelector.IsSimpleFieldOrPropertyAccess() &&
+                    inlinedHashCodeComputation == EqualityComparerExpression<string>.Default.GetGetHashCodeExpr().Inline("key"))
                 {
                     var transformedPredicate = Extensions.TransformUnaryFunction<TOuterKey, TSource>(keySelector).Body;
                     template.transformedKeySelectorAsString = transformedPredicate.ExpressionToCSharp();

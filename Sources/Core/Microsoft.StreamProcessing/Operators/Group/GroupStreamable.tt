@@ -86,13 +86,12 @@ else { #>
             if (typeOfTInnerKey.IsAnonymousType()) return RefuseUnsupported("the grouping key is an anonymous type");
 
 <# } #>
-            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
-
 <# if (i == 0) { #>
             var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();
 <# } else { #>
             var comparer = Properties.KeyEqualityComparer.GetGetHashCodeExpr();
 <# } #>
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), comparer.CacheKeyText());
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, <#= i == 0 ? "true" : "false" #>));
 
             return Generated(generatedPipeType);
@@ -100,13 +99,12 @@ else { #>
 
         private IStreamObserver<TOuterKey, TSource> GetPipe(IStreamObserver<<#= innerKey #>, TSource> observer)
         {
-            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
-
  <# if (i == 0) { #>
             var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();
 <# } else { #>
             var comparer = Properties.KeyEqualityComparer.GetGetHashCodeExpr();
 <# } #>
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), comparer.CacheKeyText());
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, <#= i == 0 ? "true" : "false" #>));
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new GroupPlanNode(
                     p,

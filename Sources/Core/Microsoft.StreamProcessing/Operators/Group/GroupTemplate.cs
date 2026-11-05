@@ -266,7 +266,7 @@ using Microsoft.StreamProcessing.Internal.Collections;
  } 
             this.Write("            for (int i = 0; i < count; i++)\r\n            {\r\n                if ((" +
                     "src_bv[i >> 6] & (1L << (i & 0x3f))) != 0) continue;\r\n\r\n");
- if (!swingingKeyFromField || !this.swingingField.OptimizeString()) { 
+ if (!swingingKeyFromField || !this.swingingField.OptimizeString() || !swingingHashColumn) { 
             this.Write("\r\n                var key = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(this.transformedKeySelectorAsString));
             this.Write(";\r\n");

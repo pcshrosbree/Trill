@@ -61,9 +61,8 @@ namespace Microsoft.StreamProcessing
             if (typeOfTOuterKey.GetPartitionType() != null) return RefusePartitioned();
             if (typeOfTInnerKey.GetPartitionType() != null) return RefusePartitioned();
 
-            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
-
             var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), comparer.CacheKeyText());
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, true));
 
             return Generated(generatedPipeType);
@@ -71,9 +70,8 @@ namespace Microsoft.StreamProcessing
 
         private IStreamObserver<TOuterKey, TSource> GetPipe(IStreamObserver<CompoundGroupKey<TOuterKey, TInnerKey>, TSource> observer)
         {
-            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
-
              var comparer = (Properties.KeyEqualityComparer as CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>).innerComparer.GetGetHashCodeExpr();
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), comparer.CacheKeyText());
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, true));
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new GroupPlanNode(
                     p,
@@ -148,9 +146,8 @@ namespace Microsoft.StreamProcessing
             // For now, restrict the inner key to be anything other than an anonymous type since those can't be ungrouped without using reflection.
             if (typeOfTInnerKey.IsAnonymousType()) return RefuseUnsupported("the grouping key is an anonymous type");
 
-            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
-
             var comparer = Properties.KeyEqualityComparer.GetGetHashCodeExpr();
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), comparer.CacheKeyText());
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, false));
 
             return Generated(generatedPipeType);
@@ -158,9 +155,8 @@ namespace Microsoft.StreamProcessing
 
         private IStreamObserver<TOuterKey, TSource> GetPipe(IStreamObserver<TInnerKey, TSource> observer)
         {
-            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText());
-
              var comparer = Properties.KeyEqualityComparer.GetGetHashCodeExpr();
+            var lookupKey = CacheKey.Create(KeySelector.CacheKeyText(), comparer.CacheKeyText());
             var generatedPipeType = cachedPipes.GetOrAdd(lookupKey, key => GroupTemplate.Generate<TOuterKey, TSource, TInnerKey>(comparer, KeySelector, false));
             Func<PlanNode, IQueryObject, PlanNode> planNode = ((PlanNode p, IQueryObject o) => new GroupPlanNode(
                     p,

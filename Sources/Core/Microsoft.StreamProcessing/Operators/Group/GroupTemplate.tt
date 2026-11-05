@@ -201,7 +201,7 @@ internal sealed class <#= className #><#= genericParameters #> :
             {
                 if ((src_bv[i >> 6] & (1L << (i & 0x3f))) != 0) continue;
 
-<# if (!swingingKeyFromField || !this.swingingField.OptimizeString()) { #>
+<# if (!swingingKeyFromField || !this.swingingField.OptimizeString() || !swingingHashColumn) { #>
 
                 var key = <#= this.transformedKeySelectorAsString #>;
 <# } #>

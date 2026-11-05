@@ -17,7 +17,7 @@ namespace Microsoft.StreamProcessing
         public readonly IEqualityComparerExpression<TLeft> LeftComparer;
 
         public ClipJoinStreamable(IStreamable<TKey, TLeft> left, IStreamable<TKey, TRight> right)
-            : base(left.Properties.Clip(right.Properties), left, right)
+            : base(left.Properties.Clip(right.Properties), left, right.WithKeyEqualityComparer(left.Properties.KeyEqualityComparer))
         {
             Contract.Requires(left != null);
             Contract.Requires(right != null);
