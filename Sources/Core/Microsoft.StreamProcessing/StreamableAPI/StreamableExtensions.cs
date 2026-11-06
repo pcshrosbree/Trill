@@ -110,11 +110,13 @@ namespace Microsoft.StreamProcessing
         /// Sets the KeyEqualityComparer property associated with the stream.
         /// This comparer is an efficient comparer optimized for this data instance, and does not apply to other streams with
         /// the same schema. For a schema-level equality comparer, implement the interface IEqualityComparerExpression.
+        /// The key hashes stored in the stream's batches are recomputed with the new comparer, so that operators that
+        /// match keys by their stored hashes, such as a join, see hashes that agree with the comparer.
         /// </summary>
         public static IStreamable<TKey, TPayload> KeyEqualityComparer<TKey, TPayload>(
             this IPropertySetter<TKey, TPayload> source,
             IEqualityComparerExpression<TKey> keyEqualityComparer)
-            => new SetPropertyStreamable<TKey, TPayload>(source.GetStreamable(), e => e.ToKeyEqualityComparer(keyEqualityComparer));
+            => new RehashStreamable<TKey, TPayload>(source.GetStreamable(), keyEqualityComparer);
 
         /// <summary>
         /// Sets a selected-substream equality comparer for the stream. Multiple of these can be set for various selectors.

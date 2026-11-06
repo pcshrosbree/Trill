@@ -233,31 +233,57 @@ namespace Microsoft.StreamProcessing
 
     internal sealed class EqualityComparer : ExpressionVisitor
     {
-        private readonly Dictionary<ParameterExpression, int> parameterMap = new Dictionary<ParameterExpression, int>();
+        // Each tree has its own scope: the parameters and variables in scope, with the number of their declaration. Two
+        // trees can share a parameter object and declare it in different places.
+        private readonly Dictionary<ParameterExpression, int> leftScope = new Dictionary<ParameterExpression, int>();
+        private readonly Dictionary<ParameterExpression, int> rightScope = new Dictionary<ParameterExpression, int>();
         private int uniqueParameterNumber;
 
         private EqualityComparer() => this.uniqueParameterNumber = 0;
 
+        /// <summary>
+        /// Returns true if the two trees are the same, up to the names of the parameters and variables they declare. A
+        /// node type that the comparison does not handle, such as a goto or a switch, counts as different, and so does a
+        /// pair whose comparison throws. For most callers that only gives up sharing or an optimization; a join then
+        /// uses the default comparer, as it does for any two comparers that may differ.
+        /// </summary>
         public static bool IsEqual(Expression e1, Expression e2)
         {
-            var me = new EqualityComparer();
-            return me.Equals(e1, e2);
+            try
+            {
+                var me = new EqualityComparer();
+                return me.Equals(e1, e2);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
+
+        // A loop's labels are optional; two labels match if both are missing or both have the same name.
+        private static bool SameLabel(LabelTarget label1, LabelTarget label2)
+            => label1 == null ? label2 == null : label2 != null && label1.Name == label2.Name;
 
         private bool Equals(Expression e1, Expression e2)
         {
-            if (e1 == e2) return true;
+            // A subtree that both trees share computes the same thing only if its parameters are bound alike in both.
+            if (e1 == e2 && (e1 == null || SameBindings(e1))) return true;
             if (e1 == null || e2 == null) return false;
             if (e1.NodeType != e2.NodeType) return false;
+
+            // The type of a node is part of what it computes: a conversion to float and one to double differ.
+            if (e1.Type != e2.Type) return false;
             if (e1 is BinaryExpression b1)
             {
+                // The method of a user-defined operator is what the node calls, so it must match too.
                 var b2 = e2 as BinaryExpression;
-                return Equals(b1.Left, b2.Left) && Equals(b1.Right, b2.Right);
+                return b1.Method == b2.Method
+                    && Equals(b1.Left, b2.Left) && Equals(b1.Right, b2.Right) && Equals(b1.Conversion, b2.Conversion);
             }
             if (e1 is UnaryExpression u1)
             {
                 var u2 = e2 as UnaryExpression;
-                return Equals(u1.Operand, u2.Operand);
+                return u1.Method == u2.Method && Equals(u1.Operand, u2.Operand);
             }
             if (e1 is ConditionalExpression conditional1)
             {
@@ -267,17 +293,27 @@ namespace Microsoft.StreamProcessing
             if (e1 is ConstantExpression constant1)
             {
                 var constant2 = e2 as ConstantExpression;
+
+                // double.Equals and float.Equals count every NaN as equal and 0.0 as equal to -0.0, but code can tell
+                // them apart, so floating-point constants are compared by their bits.
+                if (constant1.Value is double d1 && constant2.Value is double d2) return BitConverter.DoubleToInt64Bits(d1) == BitConverter.DoubleToInt64Bits(d2);
+                if (constant1.Value is float f1 && constant2.Value is float f2) return BitConverter.SingleToInt32Bits(f1) == BitConverter.SingleToInt32Bits(f2);
+
+                // Equals also ignores a decimal's scale, a DateTime's kind and a DateTimeOffset's offset, which code can read.
+                if (constant1.Value is decimal m1 && constant2.Value is decimal m2) return decimal.GetBits(m1).SequenceEqual(decimal.GetBits(m2));
+                if (constant1.Value is DateTime t1 && constant2.Value is DateTime t2) return t1.ToBinary() == t2.ToBinary();
+                if (constant1.Value is DateTimeOffset o1 && constant2.Value is DateTimeOffset o2) return o1.EqualsExact(o2);
                 return constant1.Value == null ? constant2.Value == null : constant1.Value.Equals(constant2.Value);
             }
             if (e1 is ParameterExpression param1)
             {
                 var param2 = e2 as ParameterExpression;
-                return this.parameterMap[param1] == this.parameterMap[param2];
+                return this.leftScope[param1] == this.rightScope[param2];
             }
             if (e1 is IndexExpression index1)
             {
                 var index2 = e2 as IndexExpression;
-                return Equals(index1.Object, index2.Object) && Equals(index1.Arguments, index2.Arguments);
+                return index1.Indexer == index2.Indexer && Equals(index1.Object, index2.Object) && Equals(index1.Arguments, index2.Arguments);
             }
             if (e1 is InvocationExpression invoke1)
             {
@@ -289,20 +325,10 @@ namespace Microsoft.StreamProcessing
                 var lambda2 = e2 as LambdaExpression;
                 if (!lambda1.ReturnType.Equals(lambda2.ReturnType)) return false;
                 if (lambda1.Parameters.Count != lambda2.Parameters.Count) return false;
-                for (int i = 0; i < lambda1.Parameters.Count; i++)
-                {
-                    var v1 = lambda1.Parameters[i];
-                    var v2 = lambda2.Parameters[i];
-                    this.parameterMap.Add(v1, this.uniqueParameterNumber);
-                    if (v1 != v2) this.parameterMap.Add(v2, this.uniqueParameterNumber);
-                    this.uniqueParameterNumber++;
-                }
+                if (!Declare(lambda1.Parameters, lambda2.Parameters, out var savedLeft, out var savedRight)) return false;
                 var result = Equals(lambda1.Body, lambda2.Body);
-                for (int i = 0; i < lambda1.Parameters.Count; i++)
-                {
-                    this.parameterMap.Remove(lambda1.Parameters[i]);
-                    this.parameterMap.Remove(lambda2.Parameters[i]);
-                }
+                Restore(this.leftScope, savedLeft);
+                Restore(this.rightScope, savedRight);
                 return result;
             }
             if (e1 is MemberExpression member1)
@@ -313,7 +339,7 @@ namespace Microsoft.StreamProcessing
             if (e1 is MethodCallExpression mc1)
             {
                 var mc2 = e2 as MethodCallExpression;
-                return mc1.Method.Equals(mc2.Method) && Equals(mc1.Arguments, mc2.Arguments);
+                return mc1.Method.Equals(mc2.Method) && Equals(mc1.Object, mc2.Object) && Equals(mc1.Arguments, mc2.Arguments);
             }
             if (e1 is NewExpression new1)
             {
@@ -336,21 +362,97 @@ namespace Microsoft.StreamProcessing
             if (e1 is BlockExpression block1)
             {
                 var block2 = e2 as BlockExpression;
-                return Equals(block1.Expressions, block2.Expressions);
+                if (block1.Variables.Count != block2.Variables.Count) return false;
+                for (int i = 0; i < block1.Variables.Count; i++)
+                {
+                    if (block1.Variables[i].Type != block2.Variables[i].Type) return false;
+                }
+
+                // A block's variables are declared like a lambda's parameters, so two blocks written the same way match.
+                if (!Declare(block1.Variables, block2.Variables, out var savedLeft, out var savedRight)) return false;
+                var result = Equals(block1.Expressions, block2.Expressions);
+                Restore(this.leftScope, savedLeft);
+                Restore(this.rightScope, savedRight);
+                return result;
             }
             if (e1 is LoopExpression loop1)
             {
                 var loop2 = e2 as LoopExpression;
-                return Equals(loop1.Body, loop2.Body)
-                    && loop1.BreakLabel.Name == loop2.BreakLabel.Name
-                    && loop1.ContinueLabel.Name == loop2.ContinueLabel.Name;
+                return Equals(loop1.Body, loop2.Body) && SameLabel(loop1.BreakLabel, loop2.BreakLabel) && SameLabel(loop1.ContinueLabel, loop2.ContinueLabel);
             }
             if (e1 is LabelExpression label1)
             {
                 var label2 = e2 as LabelExpression;
-                return Equals(label1.DefaultValue, label2.DefaultValue) && label1.Target.Name == label2.Target.Name;
+
+                // A goto names its label by object, so two labels match only if they are the same target.
+                return Equals(label1.DefaultValue, label2.DefaultValue) && label1.Target == label2.Target;
+            }
+            if (e1 is ListInitExpression listInit1)
+            {
+                var listInit2 = e2 as ListInitExpression;
+                return Equals(listInit1.NewExpression, listInit2.NewExpression) && listInit1.Initializers.Count == listInit2.Initializers.Count
+                    && Enumerable.Range(0, listInit1.Initializers.Count).All(o => listInit1.Initializers[o].AddMethod == listInit2.Initializers[o].AddMethod
+                        && Equals(listInit1.Initializers[o].Arguments, listInit2.Initializers[o].Arguments));
             }
             return false;
+        }
+
+        // True if every parameter that a shared subtree uses is bound to the same declaration in both trees, or in neither.
+        private bool SameBindings(Expression shared)
+        {
+            if (this.leftScope.Count == 0 && this.rightScope.Count == 0) return true;
+            foreach (var parameter in ParameterCollector.Collect(shared))
+            {
+                var inLeft = this.leftScope.TryGetValue(parameter, out var left);
+                var inRight = this.rightScope.TryGetValue(parameter, out var right);
+                if (inLeft != inRight || left != right) return false;
+            }
+
+            return true;
+        }
+
+        // Gives the i-th parameter or variable that each of two lambdas or blocks declares one number, each in its own
+        // tree's scope, and returns what each scope held before, so that Restore can undo a declaration that shadows an
+        // enclosing one. Returns false, declaring nothing, if one parameter object is declared at different places in the
+        // two lists: the trees would then bind it differently, so they count as different.
+        private bool Declare(
+            ReadOnlyCollection<ParameterExpression> first,
+            ReadOnlyCollection<ParameterExpression> second,
+            out List<KeyValuePair<ParameterExpression, int?>> savedLeft,
+            out List<KeyValuePair<ParameterExpression, int?>> savedRight)
+        {
+            savedLeft = new List<KeyValuePair<ParameterExpression, int?>>();
+            savedRight = new List<KeyValuePair<ParameterExpression, int?>>();
+            for (int i = 0; i < first.Count; i++)
+            {
+                var j = second.IndexOf(first[i]);
+                if (j >= 0 && j != i) return false;
+            }
+
+            for (int i = 0; i < first.Count; i++)
+            {
+                savedLeft.Add(Bind(this.leftScope, first[i]));
+                savedRight.Add(Bind(this.rightScope, second[i]));
+                this.uniqueParameterNumber++;
+            }
+
+            return true;
+        }
+
+        private KeyValuePair<ParameterExpression, int?> Bind(Dictionary<ParameterExpression, int> scope, ParameterExpression parameter)
+        {
+            var saved = new KeyValuePair<ParameterExpression, int?>(parameter, scope.TryGetValue(parameter, out var old) ? old : (int?)null);
+            scope[parameter] = this.uniqueParameterNumber;
+            return saved;
+        }
+
+        private void Restore(Dictionary<ParameterExpression, int> scope, List<KeyValuePair<ParameterExpression, int?>> saved)
+        {
+            for (int i = saved.Count - 1; i >= 0; i--)
+            {
+                if (saved[i].Value.HasValue) scope[saved[i].Key] = saved[i].Value.Value;
+                else scope.Remove(saved[i].Key);
+            }
         }
 
         private bool Equals(ReadOnlyCollection<Expression> list1, ReadOnlyCollection<Expression> list2)
@@ -392,6 +494,25 @@ namespace Microsoft.StreamProcessing
                             && Enumerable.Range(0, v1.Bindings.Count).All(o => Equals(v1.Bindings[o], v2.Bindings[o]));
                     }
                 default: throw new InvalidOperationException("Switch statement meant to be exhaustive.");
+            }
+        }
+
+        // Collects the parameters and variables that a subtree uses.
+        private sealed class ParameterCollector : ExpressionVisitor
+        {
+            private readonly HashSet<ParameterExpression> found = new HashSet<ParameterExpression>();
+
+            public static HashSet<ParameterExpression> Collect(Expression tree)
+            {
+                var collector = new ParameterCollector();
+                collector.Visit(tree);
+                return collector.found;
+            }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                this.found.Add(node);
+                return node;
             }
         }
     }
