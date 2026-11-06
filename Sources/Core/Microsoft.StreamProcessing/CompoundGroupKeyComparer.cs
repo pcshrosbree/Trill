@@ -7,7 +7,7 @@ using System.Linq.Expressions;
 
 namespace Microsoft.StreamProcessing
 {
-    internal sealed class CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey> : IEqualityComparerExpression<CompoundGroupKey<TOuterKey, TInnerKey>>
+    internal sealed class CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey> : IEqualityComparerExpression<CompoundGroupKey<TOuterKey, TInnerKey>>, IInlinableEqualityComparer
     {
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes", Justification = "Comparer is a function and thus immutable")]
         public readonly IEqualityComparerExpression<TOuterKey> outerComparer;
@@ -19,6 +19,12 @@ namespace Microsoft.StreamProcessing
             this.outerComparer = outerComparer ?? EqualityComparerExpression<TOuterKey>.Default;
             this.innerComparer = innerComparer ?? EqualityComparerExpression<TInnerKey>.Default;
         }
+
+        /// <summary>
+        /// Returns this comparer with the captured values of both parts inlined.
+        /// </summary>
+        public object WithInlinedCapturedValues()
+            => new CompoundGroupKeyEqualityComparer<TOuterKey, TInnerKey>(ComparerDifference.Inlined(this.outerComparer), ComparerDifference.Inlined(this.innerComparer));
 
         public Expression<Func<CompoundGroupKey<TOuterKey, TInnerKey>, CompoundGroupKey<TOuterKey, TInnerKey>, bool>> GetEqualsExpr()
         {

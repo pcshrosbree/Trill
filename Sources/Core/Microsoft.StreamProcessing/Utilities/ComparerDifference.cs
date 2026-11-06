@@ -2,10 +2,8 @@
 // Copyright (c) Microsoft Corporation.  All rights reserved.
 // Licensed under the MIT License
 // *********************************************************************
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
-using System.Linq;
 using System.Linq.Expressions;
 
 namespace Microsoft.StreamProcessing
@@ -17,8 +15,7 @@ namespace Microsoft.StreamProcessing
     /// <remarks>
     /// Both expressions are compared: with different Equals, a hash join can use default equality, which a shared
     /// hash need not respect. <see cref="EqualityComparer.IsEqual"/> ignores parameter names, but counts two trees that compute
-    /// the same function differently as different. It ignores the receiver of an instance method call, so the
-    /// receivers are compared here. A tree that the comparison cannot handle counts as different.
+    /// the same function differently as different. A tree that the comparison cannot handle counts as different.
     /// </remarks>
     internal static class ComparerDifference
     {
@@ -31,6 +28,35 @@ namespace Microsoft.StreamProcessing
             Contract.Requires(second != null);
             return !SameTree(first.GetEqualsExpr().InlineCapturedValues(), second.GetEqualsExpr().InlineCapturedValues())
                 || !SameTree(first.GetGetHashCodeExpr().InlineCapturedValues(), second.GetGetHashCodeExpr().InlineCapturedValues());
+        }
+
+        /// <summary>
+        /// Returns true if the two comparers are the same object, or their Equals and hash expressions are the same
+        /// trees as built, before captured values are inlined. Two such comparers compute the same function whenever
+        /// they run, even if a captured variable is assigned after the query is built.
+        /// </summary>
+        internal static bool SameAsBuilt<TKey>(IEqualityComparerExpression<TKey> first, IEqualityComparerExpression<TKey> second)
+        {
+            Contract.Requires(first != null);
+            Contract.Requires(second != null);
+            return ReferenceEquals(first, second)
+                || (SameTree(first.GetEqualsExpr(), second.GetEqualsExpr()) && SameTree(first.GetGetHashCodeExpr(), second.GetGetHashCodeExpr()));
+        }
+
+        /// <summary>
+        /// Returns the comparer with its captured values inlined, as <see cref="MayDiffer"/> compares it. A comparer
+        /// that is not built from other comparers, captures no value that can be inlined and returns the same trees on
+        /// every call is returned itself; otherwise the result is a new comparer.
+        /// </summary>
+        internal static IEqualityComparerExpression<TKey> Inlined<TKey>(IEqualityComparerExpression<TKey> comparer)
+        {
+            Contract.Requires(comparer != null);
+            if (comparer is IInlinableEqualityComparer composite) return (IEqualityComparerExpression<TKey>)composite.WithInlinedCapturedValues();
+            var equals = comparer.GetEqualsExpr().InlineCapturedValues();
+            var hash = comparer.GetGetHashCodeExpr().InlineCapturedValues();
+            return equals == comparer.GetEqualsExpr() && hash == comparer.GetGetHashCodeExpr()
+                ? comparer
+                : new EqualityComparerExpression<TKey>(equals, hash);
         }
 
         /// <summary>
@@ -50,52 +76,18 @@ namespace Microsoft.StreamProcessing
         }
 
         private static bool SameTree(LambdaExpression first, LambdaExpression second)
-        {
-            try
-            {
-                return EqualityComparer.IsEqual(first, second) && SameReceivers(first, second);
-            }
-            catch (Exception)
-            {
-                // IsEqual is not total: it throws for a block's variables, a loop without a continue label, and a receiver
-                // that declares a lambda. The detector must not break a query, so such a pair counts as different.
-                return false;
-            }
-        }
+            => EqualityComparer.IsEqual(first, second);
+    }
 
-        // IsEqual has already matched the two trees' shapes, so their instance calls pair up in visiting order. The
-        // receivers are compared as one array, in a lambda over every parameter of the tree.
-        private static bool SameReceivers(LambdaExpression first, LambdaExpression second)
-            => EqualityComparer.IsEqual(ReceiverFinder.Receivers(first), ReceiverFinder.Receivers(second));
-
-        private sealed class ReceiverFinder : ExpressionVisitor
-        {
-            private readonly List<Expression> receivers = new List<Expression>();
-            private readonly List<ParameterExpression> parameters = new List<ParameterExpression>();
-
-            public static LambdaExpression Receivers(LambdaExpression tree)
-            {
-                var finder = new ReceiverFinder();
-                finder.Visit(tree);
-                var array = Expression.NewArrayInit(typeof(object), finder.receivers.Select(r => (Expression)Expression.Convert(r, typeof(object))));
-                return Expression.Lambda(array, finder.parameters);
-            }
-
-            protected override Expression VisitLambda<T>(Expression<T> node)
-            {
-                foreach (var p in node.Parameters)
-                {
-                    if (!this.parameters.Contains(p)) this.parameters.Add(p);
-                }
-
-                return base.VisitLambda(node);
-            }
-
-            protected override Expression VisitMethodCall(MethodCallExpression node)
-            {
-                if (node.Object != null) this.receivers.Add(node.Object);
-                return base.VisitMethodCall(node);
-            }
-        }
+    /// <summary>
+    /// A comparer built from other comparers, which <see cref="ComparerDifference.Inlined"/> rebuilds from their inlined
+    /// copies so that it keeps its class.
+    /// </summary>
+    internal interface IInlinableEqualityComparer
+    {
+        /// <summary>
+        /// Returns a comparer of the same class whose parts have their captured values inlined.
+        /// </summary>
+        object WithInlinedCapturedValues();
     }
 }
