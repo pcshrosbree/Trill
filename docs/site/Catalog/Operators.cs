@@ -127,13 +127,20 @@ public static class Operators
     ];
 
     /// <summary>Runs <paramref name="entry"/> over <paramref name="inputs"/> in row mode.</summary>
-    public static List<EventDto> Run(OperatorEntry entry, EventDto[][] inputs)
+    // Columnar mode compiles C# with Roslyn from file-backed assembly
+    // references, which browser WASM cannot supply. Row mode only compiles
+    // expression trees, never with Roslyn, and the native tests use it too
+    // so that both hosts run the same code.
+    public static List<EventDto> Run(OperatorEntry entry, EventDto[][] inputs) => Run(entry, inputs, rowMode: true);
+
+    /// <summary>
+    /// Runs <paramref name="entry"/> over <paramref name="inputs"/> in row mode, or in columnar
+    /// mode when <paramref name="rowMode"/> is false. Only the native tests run columnar mode.
+    /// The setting is global: the caller restores it.
+    /// </summary>
+    public static List<EventDto> Run(OperatorEntry entry, EventDto[][] inputs, bool rowMode)
     {
-        // Columnar mode compiles C# with Roslyn from file-backed assembly
-        // references, which browser WASM cannot supply. Row mode only compiles
-        // expression trees, never with Roslyn, and the native tests use it too
-        // so that both hosts run the same code.
-        Config.ForceRowBasedExecution = true;
+        Config.ForceRowBasedExecution = rowMode;
         return entry.Query(inputs.Select(Ingress).ToArray());
     }
 
