@@ -253,7 +253,7 @@ namespace SimpleTesting
         private static IEqualityComparerExpression<string> ViaObject(ShardedKeyComparerModulo modulo)
             => Comparer((a, b) => a.Length == b.Length, a => modulo.Hash(a));
 
-        // EqualityComparer.IsEqual ignores a method call's receiver, so ComparerDifference compares receivers itself.
+        // Calls on different objects differ: EqualityComparer.IsEqual and ComparerDifference both compare receivers.
         [TestMethod, TestCategory("Gated")]
         public void InstanceCallsOnDifferentObjectsAreDifferent()
             => Assert.IsTrue(ComparerDifference.MayDiffer(ViaObject(new ShardedKeyComparerModulo(3)), ViaObject(new ShardedKeyComparerModulo(4))));
@@ -271,13 +271,13 @@ namespace SimpleTesting
         private static IEqualityComparerExpression<string> ViaConvertAll()
             => Comparer((a, b) => a.Length == b.Length, a => new System.Collections.Generic.List<int> { 1 }.ConvertAll(i => i).IndexOf(a.Length));
 
-        // The receiver of IndexOf is a call that declares the lambda i => i. Such receivers cannot be compared, so two
-        // comparers written the same way count as different.
+        // The receiver of IndexOf is a list initializer followed by a call that declares the lambda i => i. Two comparers
+        // written the same way are the same.
         [TestMethod, TestCategory("Gated")]
-        public void ReceiverThatDeclaresALambdaCountsAsDifferent()
-            => Assert.IsTrue(ComparerDifference.MayDiffer(ViaConvertAll(), ViaConvertAll()));
+        public void ReceiverThatDeclaresALambdaIsTheSame()
+            => Assert.IsFalse(ComparerDifference.MayDiffer(ViaConvertAll(), ViaConvertAll()));
 
-        // A hash with a block-local variable: IsEqual does not register the variable, so two such hashes count as different.
+        // A hash with a block-local variable: each copy declares its own variable in the same place, so the two are the same.
         private static IEqualityComparerExpression<string> WithBlockLocal()
         {
             var key = Expression.Parameter(typeof(string), "key");
@@ -288,10 +288,10 @@ namespace SimpleTesting
         }
 
         [TestMethod, TestCategory("Gated")]
-        public void BlockLocalVariableCountsAsDifferent()
-            => Assert.IsTrue(ComparerDifference.MayDiffer(WithBlockLocal(), WithBlockLocal()));
+        public void BlockLocalVariablesInTheSamePlaceAreTheSame()
+            => Assert.IsFalse(ComparerDifference.MayDiffer(WithBlockLocal(), WithBlockLocal()));
 
-        // Two loops that share their body, a break with no continue label: IsEqual dereferences the missing label.
+        // Two loops that share their body, a break with no continue label: the missing labels match.
         private static IEqualityComparerExpression<string> WithLoop(LabelTarget done, Expression body)
         {
             var key = Expression.Parameter(typeof(string), "key");
@@ -300,11 +300,11 @@ namespace SimpleTesting
         }
 
         [TestMethod, TestCategory("Gated")]
-        public void LoopWithoutAContinueLabelCountsAsDifferent()
+        public void LoopsWithoutAContinueLabelAreTheSame()
         {
             var done = Expression.Label("done");
             var body = Expression.Break(done);
-            Assert.IsTrue(ComparerDifference.MayDiffer(WithLoop(done, body), WithLoop(done, body)));
+            Assert.IsFalse(ComparerDifference.MayDiffer(WithLoop(done, body), WithLoop(done, body)));
         }
 
         [TestMethod, TestCategory("Gated")]

@@ -731,11 +731,18 @@ namespace Microsoft.StreamProcessing
 
         /// <summary>
         /// The key equality comparer of a join: the inputs' comparer if they have the same one, otherwise the default.
+        /// The comparers are compared as the sharded Query guard compares them, after captured values are inlined, so
+        /// that the join and the guard agree on which comparers are the same. If they are the same only after
+        /// inlining, the join uses the inlined copy, and each input whose comparer is not that copy is rehashed with
+        /// it: the live comparers could diverge if a captured variable is assigned after the query is built.
         /// </summary>
         internal IEqualityComparerExpression<TKey> JoinKeyEqualityComparer<TRight>(StreamProperties<TKey, TRight> right)
-            => this.KeyEqualityComparer.ExpressionEquals(right.KeyEqualityComparer)
+        {
+            if (ComparerDifference.MayDiffer(this.KeyEqualityComparer, right.KeyEqualityComparer)) return EqualityComparerExpression<TKey>.Default;
+            return ComparerDifference.SameAsBuilt(this.KeyEqualityComparer, right.KeyEqualityComparer)
                 ? this.KeyEqualityComparer
-                : EqualityComparerExpression<TKey>.Default;
+                : ComparerDifference.Inlined(this.KeyEqualityComparer);
+        }
 
         /// <summary>
         /// Join

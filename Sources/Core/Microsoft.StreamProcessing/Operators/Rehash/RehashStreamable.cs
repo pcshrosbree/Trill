@@ -12,10 +12,12 @@ namespace Microsoft.StreamProcessing
         /// <summary>
         /// Returns the stream with the given key equality comparer. A join finds candidate matches by the key hash
         /// stored in each batch, so if the stream has another comparer, its key hashes are recomputed with this one.
+        /// The stored hashes come from the stream's comparer as it runs, so the rehash is skipped only when the two
+        /// comparers are the same trees as built (<see cref="ComparerDifference.SameAsBuilt"/>).
         /// </summary>
         internal static IStreamable<TKey, TPayload> WithKeyEqualityComparer<TKey, TPayload>(
             this IStreamable<TKey, TPayload> source, IEqualityComparerExpression<TKey> comparer)
-            => source.Properties.KeyEqualityComparer.ExpressionEquals(comparer)
+            => ComparerDifference.SameAsBuilt(source.Properties.KeyEqualityComparer, comparer)
                 ? source
                 : new RehashStreamable<TKey, TPayload>(source, comparer);
     }
