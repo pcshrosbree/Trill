@@ -11,7 +11,23 @@ public sealed class Ev
 }
 
 /// <summary>Output payload for diagrams whose result is not an <see cref="Ev"/>: a key and a display label.</summary>
-public sealed record Out(string Key, string Label);
+// A class with settable properties and a parameterless constructor, not a positional record:
+// columnar mode refuses a record's init-only properties, so a record would make every diagram
+// that uses it run row mode in both of BothModesTests' runs, and compare nothing.
+public sealed class Out
+{
+    public Out() { }
+
+    public Out(string key, string label)
+    {
+        Key = key;
+        Label = label;
+    }
+
+    public string Key { get; set; }
+
+    public string Label { get; set; }
+}
 
 /// <summary>Pivot's output: the group's key and one field per attribute. Pivot fills each field whose name equals an attribute.</summary>
 public sealed class Totals
