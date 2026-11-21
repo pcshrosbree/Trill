@@ -204,6 +204,7 @@ namespace Microsoft.StreamProcessing
                 StartState = this.StartState,
                 MaxState = this.MaxState,
                 DefaultRegister = this.DefaultRegister,
+                DefaultAccumulator = this.DefaultAccumulator,
                 AllowOverlappingInstances = this.AllowOverlappingInstances,
                 IsDeterministic = this.IsDeterministic
             };

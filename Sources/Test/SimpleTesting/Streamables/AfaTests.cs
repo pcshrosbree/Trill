@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 using Microsoft.StreamProcessing;
 using Microsoft.StreamProcessing.Internal;
@@ -1295,5 +1296,192 @@ namespace SimpleTesting
             .ForceRowBasedExecution(false)
             .DontFallBackToRowBasedExecution(true))
         { }
+    }
+
+    // Afa.Clone() must give an automaton that matches like the original (fork issue #124). Each automaton here has a
+    // multi-element arc without an initializer, so each match starts from the automaton's default accumulator.
+    // Code generation cannot write an arc without an initializer, so in columnar mode the query falls back to row
+    // execution. With fallback disabled it cannot be built, so there is no strict columnar class.
+    public abstract class AfaCloneTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
+    {
+        internal AfaCloneTestsBase(bool columnar)
+            : base(new ConfigModifier().ForceRowBasedExecution(!columnar).DontFallBackToRowBasedExecution(false)) { }
+
+        private static IStreamable<Empty, int> Input(params int[] payloads)
+            => payloads.Select((p, i) => StreamEvent.CreatePoint(i + 1, p)).ToObservable().ToStreamable();
+
+        private static string Registers(IStreamable<Empty, int> output)
+            => string.Join(", ", output.ToStreamEventObservable().ToEnumerable().Where(e => e.IsData).Select(e => e.Payload));
+
+        // The automaton from the issue's repro.
+        private static Afa<int, int, int> AddsToTen()
+        {
+            var afa = new Afa<int, int, int>(defaultRegister: 0, defaultAccumulator: 10);
+            afa.AddMultiElementArc(0, 1,
+                initialize: null,
+                accumulate: (t, p, reg, acc) => acc + p,
+                fence: (t, acc, reg) => true,
+                transfer: (t, acc, reg) => acc);
+            afa.AddFinalState(1);
+            return afa;
+        }
+
+        // The issue's repro: one event with payload 1 gives the register 10 + 1 = 11. The original is the control.
+        [TestMethod, TestCategory("Gated")]
+        public void CloneKeepsDefaultAccumulator()
+        {
+            var afa = AddsToTen();
+            Assert.AreEqual("11", Registers(Input(1).Detect(afa, maxDuration: 10)));
+            Assert.AreEqual("11", Registers(Input(1).Detect(afa.Clone(), maxDuration: 10)));
+        }
+
+        // The pattern API clones each pattern it builds, in PatternMatcher's Concat.
+        [TestMethod, TestCategory("Gated")]
+        public void FluentPatternKeepsDefaultAccumulator()
+        {
+            var output = Input(1)
+                .DefinePattern(0)
+                .SetAccumulator(10)
+                .MultiElement(null, (t, p, reg, acc) => acc + p, null, (t, acc, reg) => true, (t, acc, reg) => acc, null)
+                .Detect(maxDuration: 10);
+            Assert.AreEqual("11", Registers(output));
+        }
+
+        // ARegex.Concat clones its first pattern. Payload 1 at time 1 gives the register 10 + 1 = 11. Then the second
+        // pattern's arc, which has an initializer of its own, adds payload 2 at time 2.
+        [TestMethod, TestCategory("Gated")]
+        public void RegexConcatKeepsDefaultAccumulator()
+        {
+            var second = new Afa<int, int, int>();
+            second.AddMultiElementArc(0, 1,
+                initialize: (t, reg) => 0,
+                accumulate: (t, p, reg, acc) => acc + p,
+                fence: (t, acc, reg) => true,
+                transfer: (t, acc, reg) => reg + acc);
+            second.AddFinalState(1);
+            Assert.AreEqual("13", Registers(Input(1, 2).Detect(ARegex.Concat(AddsToTen(), second), maxDuration: 10)));
+        }
+    }
+
+    [TestClass]
+    public class AfaCloneTestsRow : AfaCloneTestsBase
+    {
+        public AfaCloneTestsRow() : base(false) { }
+    }
+
+    [TestClass]
+    public class AfaCloneTestsColumnar : AfaCloneTestsBase
+    {
+        public AfaCloneTestsColumnar() : base(true) { }
+    }
+
+    // Clone() must copy every field of Afa<,,>. CloneCopiesEveryField fails when a field is added that Clone() does
+    // not copy, or that Original() leaves at its default value, where copying it cannot be told from not copying it.
+    [TestClass]
+    public class AfaCloneFieldTests
+    {
+        private const BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+        // The fields that Clone() does not copy by assignment, with the reason for each.
+        private static readonly Dictionary<string, string> NotAssigned = new Dictionary<string, string>
+        {
+            { "isSealed", "A clone starts unsealed: Concat clones a sealed pattern and then adds arcs, which a sealed automaton refuses." },
+            { "finalStates", "Clone() adds each final state to the clone's own list: see CloneHasTheSameFinalStatesInItsOwnList." },
+            { "transitionInfo", "Clone() adds each arc to the clone's own dictionaries: see CloneHasTheSameArcsInItsOwnDictionaries." },
+        };
+
+        // Every field differs from its default value, and every expression of each arc is set.
+        private static Afa<int, string, long> Original()
+        {
+            var afa = new Afa<int, string, long>(defaultRegister: "register", defaultAccumulator: 42);
+            afa.AddSingleElementArc(1, 2, (t, p, reg) => p > 0, (t, p, reg) => reg + p);
+            afa.AddMultiElementArc(2, 3,
+                initialize: (t, reg) => 1,
+                accumulate: (t, p, reg, acc) => acc + p,
+                skipToEnd: (t, p, acc) => acc > 9,
+                fence: (t, acc, reg) => acc > 0,
+                transfer: (t, acc, reg) => reg + acc,
+                dispose: acc => acc.ToString());
+            afa.AddFinalState(3);
+            afa.StartState = 1;
+            afa.AllowOverlappingInstances = false;
+            afa.IsDeterministic = true;
+            afa.Seal();
+            return afa;
+        }
+
+        private static string Arcs(Afa<int, string, long> afa)
+            => string.Join("; ", afa.transitionInfo.OrderBy(source => source.Key).SelectMany(
+                source => source.Value.OrderBy(target => target.Key).Select(target => source.Key + " -> " + target.Key + " " + target.Value.ArcType)));
+
+        private static object[] Expressions(Arc<int, string> arc)
+        {
+            if (arc is SingleElementArc<int, string> single) return new object[] { single.Fence, single.Transfer };
+            if (arc is MultiElementArc<int, string, long> multi) return new object[] { multi.Initialize, multi.Accumulate, multi.SkipToEnd, multi.Fence, multi.Transfer, multi.Dispose };
+            throw new InvalidOperationException("Original() has only single-element and multi-element arcs.");
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void CloneCopiesEveryField()
+        {
+            var type = typeof(Afa<int, string, long>);
+            foreach (var name in NotAssigned.Keys)
+            {
+                Assert.IsNotNull(type.GetField(name, InstanceFields), "NotAssigned lists " + name + ", which is not a field of Afa<,,>.");
+            }
+
+            var original = Original();
+            var clone = original.Clone();
+            var fresh = new Afa<int, string, long>();
+            var compared = new List<string>();
+            foreach (var field in type.GetFields(InstanceFields))
+            {
+                if (NotAssigned.ContainsKey(field.Name)) continue;
+                var unset = "Original() leaves field " + field.Name + " at its default value. Give it another value there, or list it in NotAssigned with the reason.";
+                Assert.AreNotEqual(field.GetValue(fresh), field.GetValue(original), unset);
+                Assert.AreEqual(field.GetValue(original), field.GetValue(clone), "Clone() does not copy field " + field.Name + ".");
+                compared.Add(field.Name);
+            }
+
+            CollectionAssert.Contains(compared, nameof(Afa<int, string, long>.DefaultAccumulator));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void CloneStartsUnsealed()
+            => Assert.IsFalse(Original().Clone().IsSealed());
+
+        [TestMethod, TestCategory("Gated")]
+        public void CloneHasTheSameFinalStatesInItsOwnList()
+        {
+            var original = Original();
+            var clone = original.Clone();
+            CollectionAssert.AreEqual(original.finalStates, clone.finalStates);
+            Assert.AreNotSame(original.finalStates, clone.finalStates);
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void CloneHasTheSameArcsInItsOwnDictionaries()
+        {
+            var original = Original();
+            var clone = original.Clone();
+            Assert.AreEqual("1 -> 2 SingleElement; 2 -> 3 MultiElement", Arcs(clone));
+            Assert.AreNotSame(original.transitionInfo, clone.transitionInfo);
+            foreach (var state in original.transitionInfo.Keys)
+            {
+                Assert.AreNotSame(original.transitionInfo[state], clone.transitionInfo[state], "Clone() shares the arc dictionary of state " + state + ".");
+
+                // Each arc's expressions are compared, not the arc objects: this test does not settle whether a clone shares them.
+                foreach (var target in original.transitionInfo[state].Keys)
+                {
+                    var expected = Expressions(original.transitionInfo[state][target]);
+                    var actual = Expressions(clone.transitionInfo[state][target]);
+                    for (int i = 0; i < expected.Length; i++)
+                    {
+                        Assert.IsNotNull(expected[i]);
+                        Assert.AreSame(expected[i], actual[i], "Clone() changes expression " + i + " of the arc " + state + " -> " + target + ".");
+                    }
+                }
+            }
+        }
     }
 }
