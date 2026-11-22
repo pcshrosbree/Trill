@@ -18,6 +18,13 @@ public sealed class BothModesTests
     {
         // Columnar mode throws while the query is built: Ev is a class with default equality.
         ["clip-event-duration"] = 159,
+        // Chop (Beat) refuses Ev in columnar mode; RepetitiveHoppingWindowLifetime ends with a Chop.
+        ["repetitive-hopping-window"] = 164,
+        ["chop"] = 164,
+        ["stitch"] = 164,
+        // Columnar mode throws NullReferenceException while the query runs.
+        ["quantize-lifetime"] = 163,
+        ["progressive-quantize-lifetime"] = 163,
     };
 
     /// <summary>
@@ -30,17 +37,22 @@ public sealed class BothModesTests
         ["join"] = NoEquijoinComparer,
         ["left-outer-join"] = NoAntisemijoinComparer + "; " + NoEquijoinComparer,
         ["where-not-exists"] = NoAntisemijoinComparer,
-        ["consecutive-pairs"] = "NotSupported : Type of payload, 'TrillDocs.Ev', to Clip does not have a valid equality operator for columnar mode. "
-            + "Its equality and hash expressions may use the payload only to read its fields or properties; set such a comparer on the left input with SetProperty().PayloadEqualityComparer.",
+        // Clip falls back when its left input is start-edge-only (#41), as both operators make it.
+        ["consecutive-pairs"] = ClipNeedsComparer,
+        ["sessionize"] = ClipNeedsComparer,
         // Payloads that columnar mode cannot hold in columns.
         ["distinct"] = "TypeNotColumnar String: field _stringLength is not public",
         ["pivot"] = "TypeNotColumnar Int32[]: the type has no public parameterless constructor",
         ["top-k"] = "TypeNotColumnar List`1: field _items is not public",
         // Generated code that doesn't compile: #160 (the selector uses the key, reads a payload field in a
-        // nested lambda, and names a parameter i) and #138 (PointAtEnd's EndPointHeap field, CS0052).
+        // nested lambda, and names a parameter i) and #138 (the EndPointHeap field, CS0052).
         ["select-many-by-key"] = GeneratedCodeDoesNotCompile,
         ["point-at-end"] = GeneratedCodeDoesNotCompile,
+        ["extend-lifetime"] = GeneratedCodeDoesNotCompile,
     };
+
+    const string ClipNeedsComparer = "NotSupported : Type of payload, 'TrillDocs.Ev', to Clip does not have a valid equality operator for columnar mode. "
+        + "Its equality and hash expressions may use the payload only to read its fields or properties; set such a comparer on the left input with SetProperty().PayloadEqualityComparer.";
 
     const string GeneratedCodeDoesNotCompile = "CodeGenerationFailed : code generation threw NullReferenceException: Object reference not set to an instance of an object.";
 
@@ -319,8 +331,7 @@ public sealed class BothModesTests
         Assert.IsNotNull(FirstDifference(new Outcome(events, null), planted));
     }
 
-    // The same lifetime sent as a start edge and an end edge is not a difference, but a start edge
-    // whose end edge never comes is, and so is an end edge at another time.
+    // The cases in Normalise's summary.
     [TestMethod]
     [DataRow("edges", false)]
     [DataRow("unclosed", true)]

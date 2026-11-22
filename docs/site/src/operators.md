@@ -28,6 +28,15 @@ Each operator has a page with an interactive diagram computed by Trill. It cover
 | [HoppingWindowLifetime](operators/hopping-window.md) | Moves each event into overlapping windows of a fixed size that start every period. |
 | [SessionTimeoutWindow](operators/session-timeout-window.md) | Groups events into sessions that end after a quiet period, and makes every event of a session last until the session ends. |
 | [PointAtEnd](operators/point-at-end.md) | Replaces each event with a one-tick event at its end. |
+| [ShiftEventLifetime](operators/shift-event-lifetime.md) | Moves every event by the same amount of time, keeping its duration. |
+| [AlterEventLifetime](operators/alter-event-lifetime.md) | Gives every event a new start time and a new duration, both computed from its original start time. |
+| [ExtendLifetime](operators/extend-lifetime.md) | Makes every event last longer by a fixed amount, keeping its start time. |
+| [QuantizeLifetime](operators/quantize-lifetime.md) | Widens every event to window boundaries: its start moves back to one, and its end moves forward to one. |
+| [ProgressiveQuantizeLifetime](operators/progressive-quantize-lifetime.md) | Like QuantizeLifetime, but moves each start back only as far as the progress interval. |
+| [RepetitiveHoppingWindowLifetime](operators/repetitive-hopping-window.md) | Like HoppingWindowLifetime, but cuts each event into one piece per hop. |
+| [Chop](operators/chop.md) | Cuts every event at each multiple of a period, so that no piece crosses a boundary. |
+| [Stitch](operators/stitch.md) | Joins an event that ends to an event with an equal payload that starts at the same moment, which reverses Chop. |
+| [Sessionize](operators/sessionize.md) | Pairs each session's start event with its end event, per session key, and emits one result when the session ends. |
 
 ## Combining streams
 

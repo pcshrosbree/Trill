@@ -1259,6 +1259,666 @@
     ]
   },
   {
+    "id": "shift-event-lifetime",
+    "title": "ShiftEventLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.ShiftEventLifetime(2)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 7,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 11,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 8,
+        "end": 10,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "alter-event-lifetime",
+    "title": "AlterEventLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.AlterEventLifetime(start =\u003E start \u002B 1, start =\u003E start)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 3,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 5,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 5,
+        "end": 9,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 8,
+        "end": 15,
+        "key": "b",
+        "label": "4"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 19,
+        "key": "a",
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "extend-lifetime",
+    "title": "ExtendLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.ExtendLifetime(2)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 7,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 11,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 10,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "quantize-lifetime",
+    "title": "QuantizeLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.QuantizeLifetime(4, 4)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 0,
+        "end": 8,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 0,
+        "end": 12,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "progressive-quantize-lifetime",
+    "title": "ProgressiveQuantizeLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.ProgressiveQuantizeLifetime(4, 4, 2)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 0,
+        "end": 8,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 12,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "repetitive-hopping-window",
+    "title": "RepetitiveHoppingWindowLifetime",
+    "category": "Lifetimes and windows",
+    "code": "input.RepetitiveHoppingWindowLifetime(4, 2)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 4,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 4,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 6,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 6,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 4,
+        "end": 6,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "Interval",
+        "start": 8,
+        "end": 10,
+        "key": "b",
+        "label": "4"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 12,
+        "key": "b",
+        "label": "4"
+      },
+      {
+        "kind": "Interval",
+        "start": 10,
+        "end": 12,
+        "key": "a",
+        "label": "5"
+      },
+      {
+        "kind": "Interval",
+        "start": 12,
+        "end": 14,
+        "key": "a",
+        "label": "5"
+      }
+    ]
+  },
+  {
+    "id": "chop",
+    "title": "Chop",
+    "category": "Lifetimes and windows",
+    "code": "input.Chop(0, 3)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 1,
+        "end": 3,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 5,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Interval",
+        "start": 3,
+        "end": 6,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 9,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "Interval",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      }
+    ]
+  },
+  {
+    "id": "stitch",
+    "title": "Stitch",
+    "category": "Lifetimes and windows",
+    "code": "input.Chop(0, 3).Stitch()",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 1,
+        "end": null,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Start",
+        "start": 3,
+        "end": null,
+        "key": "b",
+        "label": "2"
+      },
+      {
+        "kind": "End",
+        "start": 1,
+        "end": 5,
+        "key": "a",
+        "label": "1"
+      },
+      {
+        "kind": "Start",
+        "start": 6,
+        "end": null,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "End",
+        "start": 6,
+        "end": 8,
+        "key": "a",
+        "label": "3"
+      },
+      {
+        "kind": "End",
+        "start": 3,
+        "end": 9,
+        "key": "b",
+        "label": "2"
+      }
+    ]
+  },
+  {
+    "id": "sessionize",
+    "title": "Sessionize",
+    "category": "Lifetimes and windows",
+    "code": "input.Sessionize(e =\u003E e.Value \u003C= 2, e =\u003E e.Value \u003E= 4, e =\u003E e.Key,\n    (start, end) =\u003E new Out(end.Key, start.Value \u002B \u0022 to \u0022 \u002B end.Value))",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 7,
+        "end": null,
+        "key": "b",
+        "label": "2 to 4"
+      },
+      {
+        "kind": "End",
+        "start": 7,
+        "end": 8,
+        "key": "b",
+        "label": "2 to 4"
+      },
+      {
+        "kind": "Start",
+        "start": 9,
+        "end": null,
+        "key": "a",
+        "label": "1 to 5"
+      },
+      {
+        "kind": "End",
+        "start": 9,
+        "end": 10,
+        "key": "a",
+        "label": "1 to 5"
+      }
+    ]
+  },
+  {
     "id": "union",
     "title": "Union",
     "category": "Combining streams",

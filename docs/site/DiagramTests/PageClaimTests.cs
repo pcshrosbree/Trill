@@ -245,6 +245,138 @@ public sealed class PageClaimTests
         Assert.AreEqual("Interval[4,6)a:1",
             Show(Run(s => s.HoppingWindowLifetime(2, 4), I(1, 2), I(3, 4))));
 
+    // shift-event-lifetime.md: "ShiftEventLifetime(start => ...) takes a function of each event's start time, so each
+    // event can move by its own amount." With start => start, an event at 1 moves by 1 and one at 3 by 3.
+    [TestMethod]
+    public void ShiftEventLifetimeFunctionMovesEachEventByItsOwnAmount() =>
+        Assert.AreEqual("Interval[2,3)a:1 Interval[6,8)b:2",
+            Show(Run(s => s.ShiftEventLifetime(start => start), I(1, 2), I(3, 5, "b", 2))));
+
+    // alter-event-lifetime.md: "Two other overloads take a duration function of the original start and end times,
+    // (start, end) => ..., or a fixed duration."
+    [TestMethod]
+    public void AlterEventLifetimeOtherOverloads()
+    {
+        Assert.AreEqual("Interval[0,6)a:1 Interval[2,10)b:2 Interval[5,9)a:3",
+            Show(Run(s => s.AlterEventLifetime(start => start - 1, (start, end) => end - start + 2),
+                I(1, 5), I(3, 9, "b", 2), I(6, 8, "a", 3))));
+        Assert.AreEqual("Interval[2,4)a:1", Show(Run(s => s.AlterEventLifetime(start => start + 1, 2), I(1, 5))));
+    }
+
+    // extend-lifetime.md: "with an amount of -3, [1,5) becomes [1,2), while [3,6) and [6,8) disappear."
+    [TestMethod]
+    public void ExtendLifetimeNegativeShortensAndDrops() =>
+        Assert.AreEqual("Interval[1,2)a:1",
+            Show(Run(s => s.ExtendLifetime(-3), I(1, 5), I(3, 6, "b", 2), I(6, 8, "a", 3))));
+
+    static IEnumerable<(long Start, long End)> Lifetimes() =>
+        from start in Enumerable.Range(0, 13) from length in Enumerable.Range(1, 9) select ((long)start, (long)(start + length));
+
+    static (long Start, long End) One(Func<IStreamable<Empty, Ev>, IStreamable<Empty, Ev>> query, (long Start, long End) lifetime)
+    {
+        var events = Run(query, I(lifetime.Start, lifetime.End));
+        Assert.AreEqual(1, events.Count, $"{lifetime}: {Show(events)}");
+        return (events[0].Start, events[0].End ?? long.MaxValue);
+    }
+
+    // quantize-lifetime.md: "QuantizeLifetime(size, period) never makes an event shorter: no start moves later and
+    // no end moves earlier." Checked over every lifetime of length 1 to 9 starting at 0 to 12, for three shapes.
+    [TestMethod]
+    [DataRow(4, 4)]
+    [DataRow(6, 2)]
+    [DataRow(3, 2)]
+    public void QuantizeNeverShortens(int size, int period)
+    {
+        foreach (var lifetime in Lifetimes())
+        {
+            var (start, end) = One(s => s.QuantizeLifetime(size, period), lifetime);
+            Assert.IsTrue(start <= lifetime.Start && end >= lifetime.End, $"{lifetime} became [{start},{end})");
+        }
+    }
+
+    // quantize-lifetime.md: with size equal to period, the start moves back to the nearest multiple of period at or
+    // before it, and the end forward to the nearest multiple at or after it.
+    [TestMethod]
+    public void QuantizeEqualSizeSnapsToThePeriod()
+    {
+        foreach (var lifetime in Lifetimes())
+        {
+            var expected = (lifetime.Start / 4 * 4, (lifetime.End + 3) / 4 * 4);
+            Assert.AreEqual(expected, One(s => s.QuantizeLifetime(4, 4), lifetime), lifetime.ToString());
+        }
+    }
+
+    // progressive-quantize-lifetime.md: each start moves back to the nearest multiple of progress at or before it,
+    // and each end moves forward as QuantizeLifetime does.
+    [TestMethod]
+    public void ProgressiveStartsSnapToProgressAndEndsAsQuantize()
+    {
+        foreach (var lifetime in Lifetimes())
+        {
+            var (start, end) = One(s => s.ProgressiveQuantizeLifetime(4, 4, 2), lifetime);
+            Assert.AreEqual(lifetime.Start / 2 * 2, start, lifetime.ToString());
+            Assert.AreEqual(One(s => s.QuantizeLifetime(4, 4), lifetime).End, end, lifetime.ToString());
+        }
+    }
+
+    // progressive-quantize-lifetime.md: "progress must divide period exactly and be smaller than it. Otherwise the
+    // call throws ArgumentException."
+    [TestMethod]
+    [DataRow(4)]
+    [DataRow(3)]
+    public void ProgressiveRejectsAProgressThatIsNotASmallerDivisor(int progress) =>
+        Assert.ThrowsExactly<ArgumentException>(() => Run(s => s.ProgressiveQuantizeLifetime(4, 4, progress), I(1, 2)));
+
+    // repetitive-hopping-window.md: it is HoppingWindowLifetime with the same arguments, followed by Chop at every
+    // multiple of period.
+    [TestMethod]
+    public void RepetitiveHoppingIsHoppingThenChop()
+    {
+        var ticks = new[] { I(1, 2), I(2, 3, "b", 2), I(4, 5, "a", 3), I(7, 8, "b", 4), I(9, 10, "a", 5) };
+        Assert.AreEqual(Show(Run(s => s.HoppingWindowLifetime(4, 2).Chop(0, 2), ticks)),
+            Show(Run(s => s.RepetitiveHoppingWindowLifetime(4, 2), ticks)));
+    }
+
+    // repetitive-hopping-window.md: "After HoppingWindowLifetime, an aggregate reports only when its result changes.
+    // After this operator, it reports at every hop, even when the result is the same." A result is reported when it
+    // starts (an interval or a start edge), so this compares the times at which the Count results start.
+    [TestMethod]
+    public void RepetitiveHoppingReportsAtEveryHop()
+    {
+        static string Starts(Func<IStreamable<Empty, Ev>, IStreamable<Empty, Ev>> window)
+        {
+            Config.ForceRowBasedExecution = true;
+            var events = Operators.Collect(window(Operators.Ingress([I(1, 2)])).Count().Select(c => new Out(null, c.ToString())));
+            return string.Join(" ", events.Where(e => e.Kind != "End").Select(e => $"{e.Start}:{e.Label}"));
+        }
+
+        Assert.AreEqual("2:1", Starts(s => s.HoppingWindowLifetime(4, 2)));
+        Assert.AreEqual("2:1 4:1", Starts(s => s.RepetitiveHoppingWindowLifetime(4, 2)));
+    }
+
+    // chop.md: "With offset 1 and the same period, the boundaries are 1, 4 and 7, so b:2 [3,9) becomes [3,4),
+    // [4,7) and [7,9)."
+    [TestMethod]
+    public void ChopOffsetMovesTheBoundaries() =>
+        Assert.AreEqual("Interval[3,4)b:2 Interval[4,7)b:2 Interval[7,9)b:2",
+            Show(Run(s => s.Chop(1, 3), I(3, 9, "b", 2))));
+
+    // stitch.md's note: "Stitch on its own refuses it too." Fails once columnar Stitch accepts Ev (#164).
+    [TestMethod]
+    public void StitchAloneRefusesEvInColumnarMode()
+    {
+        var saved = Config.ForceRowBasedExecution;
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            Assert.ThrowsExactly<InvalidOperationException>(() => Operators.Collect(Operators.Ingress([I(1, 5)]).Stitch()));
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = saved;
+        }
+    }
+
     // multicast.md: "Every branch the function builds from s shares one subscription to the source."
     // The same two branches without Multicast subscribe twice, which shows the count can tell them apart.
     [TestMethod]
