@@ -361,6 +361,29 @@ public sealed class PageClaimTests
         Assert.AreEqual("Interval[3,4)b:2 Interval[4,7)b:2 Interval[7,9)b:2",
             Show(Run(s => s.Chop(1, 3), I(3, 9, "b", 2))));
 
+    // chop.md: "a period of 0 or less throws ArgumentException when Chop is called (#166)." The query is built and
+    // never subscribed, so the test cannot hang on an engine without the check.
+    [TestMethod]
+    [DataRow(0L)]
+    [DataRow(-3L)]
+    public void ChopRefusesANonPositivePeriodAtTheCall(long period)
+    {
+        var e = Assert.ThrowsExactly<ArgumentException>(() => Operators.Ingress([I(1, 2)]).Chop(0, period));
+        Assert.AreEqual("period", e.ParamName);
+    }
+
+    // repetitive-hopping-window.md: "The size and the period must be positive: a value of 0 or less throws
+    // ArgumentException when the operator is called (#166)."
+    [TestMethod]
+    [DataRow(0L, 2L, "windowSize")]
+    [DataRow(4L, 0L, "period")]
+    [DataRow(4L, -2L, "period")]
+    public void RepetitiveHoppingRefusesANonPositiveSizeOrPeriodAtTheCall(long size, long period, string parameter)
+    {
+        var e = Assert.ThrowsExactly<ArgumentException>(() => Operators.Ingress([I(1, 2)]).RepetitiveHoppingWindowLifetime(size, period));
+        Assert.AreEqual(parameter, e.ParamName);
+    }
+
     // stitch.md's note: "Stitch on its own refuses it too." Fails once columnar Stitch accepts Ev (#164).
     [TestMethod]
     public void StitchAloneRefusesEvInColumnarMode()
