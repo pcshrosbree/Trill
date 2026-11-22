@@ -46,4 +46,7 @@
   - [PercentileContinuous (tumbling window)](operators/percentile-continuous.md)
   - [Detect](operators/detect.md)
   - [ConsecutivePairs](operators/consecutive-pairs.md)
+  - [FollowedByImmediate](operators/followed-by-immediate.md)
+  - [FollowedByImmediate (two streams)](operators/followed-by-immediate-two-streams.md)
+  - [DefinePattern](operators/define-pattern.md)
 - [Row mode and the RowModeReporter hook](row-mode.md)

@@ -1427,4 +1427,198 @@ public sealed class PageClaimTests
         Assert.IsTrue(clips.Count > 0, string.Join("; ", reports));
         Assert.IsTrue(clips.All(r => r.Reason == RowModeReason.NotSupported), string.Join("; ", clips));
     }
+
+    // FollowedByImmediate's join emits a result either as a start edge and an end edge or as an interval, and the
+    // pages claim only each result's lifetime. These tests compare "[start,end)key:label" in start order. Each end
+    // edge must close an earlier start edge with the same start, key and label, and every start edge must be closed.
+    static string ResultLifetimes(List<EventDto> events)
+    {
+        var open = new List<EventDto>();
+        var results = new List<EventDto>();
+        foreach (var e in events)
+        {
+            if (e.Kind == "Start")
+            {
+                open.Add(e);
+                continue;
+            }
+            if (e.Kind == "End")
+            {
+                var i = open.FindIndex(s => s.Start == e.Start && s.Key == e.Key && s.Label == e.Label);
+                Assert.IsTrue(i >= 0, "an end edge without its start edge: " + Show(events));
+                open.RemoveAt(i);
+            }
+            results.Add(e);
+        }
+        Assert.AreEqual(0, open.Count, "a start edge without its end edge: " + Show(events));
+        return string.Join(" ", results.OrderBy(e => e.Start).ThenBy(e => e.End)
+            .Select(e => $"[{e.Start},{e.End}){(e.Key is null ? "" : e.Key + ":")}{e.Label}"));
+    }
+
+    // The pairing in ResultLifetimes must be able to fail: each case breaks one rule, and the last is a control.
+    [TestMethod]
+    [DataRow("no end", "a start edge without its end edge")]
+    [DataRow("no start", "an end edge without its start edge")]
+    [DataRow("other label", "an end edge without its start edge")]
+    [DataRow("other start", "an end edge without its start edge")]
+    [DataRow("paired", null)]
+    public void ResultLifetimesRefusesAnUnpairedEdge(string change, string expected)
+    {
+        var start = new EventDto("Start", 2, null, "b", "1,2");
+        var end = new EventDto("End", 2, 3, "b", "1,2");
+        var events = change switch
+        {
+            "no end" => new List<EventDto> { start },
+            "no start" => new List<EventDto> { end },
+            "other label" => new List<EventDto> { start with { Label = "1,3" }, end },
+            "other start" => new List<EventDto> { start with { Start = 1 }, end },
+            _ => new List<EventDto> { start, end },
+        };
+        if (expected is null)
+        {
+            Assert.AreEqual("[2,3)b:1,2", ResultLifetimes(events));
+            return;
+        }
+        var e = Assert.ThrowsExactly<AssertFailedException>(() => ResultLifetimes(events));
+        StringAssert.Contains(e.Message, expected);
+    }
+
+    // followed-by-immediate.md and followed-by-immediate-two-streams.md: "in columnar mode this query throws
+    // InvalidOperationException while it is built", from the clip (#159). Built, never subscribed.
+    [TestMethod]
+    [DoNotParallelize]
+    public void FollowedByImmediateThrowsWhileBuiltInColumnarMode()
+    {
+        var saved = Config.ForceRowBasedExecution;
+        try
+        {
+            Config.ForceRowBasedExecution = false;
+            var one = Assert.ThrowsExactly<InvalidOperationException>(() => AThenB(Operators.Ingress([I(1, 2)]), 4));
+            var two = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                LeftAThenRightA(Operators.Ingress([I(1, 2)]), Operators.Ingress([I(2, 3)]), 4));
+            foreach (var e in new[] { one, two })
+                StringAssert.Contains(e.Message, "to Clip does not have a valid equality operator for columnar mode");
+        }
+        finally
+        {
+            Config.ForceRowBasedExecution = saved;
+        }
+    }
+
+    static IStreamable<Empty, Out> AThenB(IStreamable<Empty, Ev> s, long within) =>
+        s.FollowedByImmediate(e => e.Key == "a", e => e.Key == "b",
+            (first, second) => new Out(second.Key, first.Value + "," + second.Value), within);
+
+    // followed-by-immediate.md: "Drag b:4 from 7 to 8 and its match disappears ... Drag a:5 from 9 to 5 or 6 instead
+    // and the match moves to it".
+    [TestMethod]
+    [DataRow("4", 8L, "[2,3)b:1,2")]
+    [DataRow("5", 5L, "[2,3)b:1,2 [7,8)b:5,4")]
+    [DataRow("5", 6L, "[2,3)b:1,2 [7,8)b:5,4")]
+    public void FollowedByImmediateDrags(string label, long to, string expected) =>
+        Assert.AreEqual(expected, ResultLifetimes(RunEntry("followed-by-immediate", e => e.Label == label ? e with { Start = to, End = to + 1 } : e)));
+
+    // followed-by-immediate.md: "an event of any kind that starts between the two prevents the match. With a time limit,
+    // only start times count: the events' own ends play no part."
+    [TestMethod]
+    public void FollowedByImmediateCountsEveryEventAndOnlyStartTimes()
+    {
+        Assert.AreEqual("", ResultLifetimes(Operators.Collect(AThenB(In(Tick(1, "a", 1), Tick(2, "c", 2), Tick(3, "b", 3)), 5))));
+        Assert.AreEqual("[3,4)b:1,3", ResultLifetimes(Operators.Collect(AThenB(In(Tick(1, "a", 1), Tick(3, "b", 3)), 4))));
+        Assert.AreEqual("[3,4)b:1,3", ResultLifetimes(Operators.Collect(AThenB(In(I(1, 20, "a", 1), I(3, 30, "b", 3)), 4))));
+    }
+
+    // followed-by-immediate.md and followed-by-immediate-two-streams.md: "withinDuration must be at least 2: the call
+    // refuses 0 and 1 with an ArgumentException."
+    [TestMethod]
+    [DataRow(0L)]
+    [DataRow(1L)]
+    public void FollowedByImmediateRefusesAWithinDurationBelowTwo(long within)
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => AThenB(Operators.Ingress([I(1, 2)]), within));
+        Assert.ThrowsExactly<ArgumentException>(() => Operators.Ingress([I(1, 2)])
+            .FollowedByImmediate(Operators.Ingress([I(1, 2)]), l => true, r => true, (l, r) => l, within));
+    }
+
+    // followed-by-immediate.md: 2 is the smallest withinDuration, and it allows a gap of 1.
+    [TestMethod]
+    public void FollowedByImmediateAcceptsAWithinDurationOfTwo() =>
+        Assert.AreEqual("[2,3)b:1,2", ResultLifetimes(Operators.Collect(AThenB(In(Tick(1, "a", 1), Tick(2, "b", 2)), 2))));
+
+    // followed-by-immediate.md: "A negative withinDuration sets no time limit. The first event's own lifetime limits the
+    // match instead: the second event must start no later than the moment the first ends."
+    [TestMethod]
+    public void FollowedByImmediateWithANegativeDurationUsesTheFirstEventsLifetime()
+    {
+        Assert.AreEqual("[15,16)b:1,2", ResultLifetimes(Operators.Collect(AThenB(In(I(1, 20, "a", 1), Tick(15, "b", 2)), -1))));
+        Assert.AreEqual("[3,4)b:1,2", ResultLifetimes(Operators.Collect(AThenB(In(I(1, 3, "a", 1), Tick(3, "b", 2)), -1))));
+        Assert.AreEqual("", ResultLifetimes(Operators.Collect(AThenB(In(I(1, 3, "a", 1), Tick(4, "b", 2)), -1))));
+    }
+
+    static IStreamable<Empty, Out> LeftAThenRightA(IStreamable<Empty, Ev> left, IStreamable<Empty, Ev> right, long within) =>
+        left.FollowedByImmediate(right, l => l.Key == "a", r => r.Key == "a", (l, r) => new Out(l.Key, l.Value + "+" + r.Value), within);
+
+    // followed-by-immediate-two-streams.md: "Drag a:30 to 9 and 3+30 appears at 9."
+    [TestMethod]
+    public void FollowedByImmediateTwoStreamsDragOfA30() =>
+        Assert.AreEqual("[2,3)a:1+10 [9,10)a:3+30",
+            ResultLifetimes(RunEntry("followed-by-immediate-two-streams", e => e.Label == "30" ? e with { Start = 9, End = 11 } : e)));
+
+    // followed-by-immediate-two-streams.md: "an event on the right that starts between the two prevents the match, but
+    // an event on the left does not."
+    [TestMethod]
+    public void FollowedByImmediateTwoStreamsCountsOnlyTheRightStream()
+    {
+        Assert.AreEqual("[3,4)a:1+3", ResultLifetimes(Operators.Collect(LeftAThenRightA(In(Tick(1, "a", 1), Tick(2, "c", 2)), In(Tick(3, "a", 3)), 5))));
+        Assert.AreEqual("", ResultLifetimes(Operators.Collect(LeftAThenRightA(In(Tick(1, "a", 1)), In(Tick(2, "c", 2), Tick(3, "a", 3)), 5))));
+    }
+
+    // followed-by-immediate-two-streams.md: "a negative value sets no time limit."
+    [TestMethod]
+    public void FollowedByImmediateTwoStreamsWithANegativeDuration() =>
+        Assert.AreEqual("[15,16)a:1+2", ResultLifetimes(Operators.Collect(LeftAThenRightA(In(I(1, 20, "a", 1)), In(Tick(15, "a", 2)), -1))));
+
+    static IPattern<Empty, Ev, int, bool> AThenBAdding(IAbstractPatternRoot<Empty, Ev, int, bool> p) => p
+        .SingleElement(e => e.Key == "a", (e, r) => r + e.Value)
+        .SingleElement(e => e.Key == "b", (e, r) => r + e.Value);
+
+    // define-pattern.md: "source.Detect(100, p => ..., maxDuration: 4) gives the same result, and so does
+    // DefinePattern(100).Detect(p => ..., maxDuration: 4)."
+    [TestMethod]
+    public void DefinePatternOtherForms()
+    {
+        Assert.AreEqual("Interval[2,5)103 Interval[7,8)107", Show(Operators.Collect(Ticks().Detect(100, p => AThenBAdding(p), maxDuration: 4))));
+        Assert.AreEqual("Interval[2,5)103 Interval[7,8)107", Show(Operators.Collect(Ticks().DefinePattern(100).Detect(p => AThenBAdding(p), maxDuration: 4))));
+    }
+
+    // define-pattern.md: "a step without one leaves the register unchanged" and "With no argument, DefinePattern() has
+    // no register, and each match is reported as Empty".
+    [TestMethod]
+    public void DefinePatternWithoutAnAggregatorOrADefault()
+    {
+        Assert.AreEqual("Interval[2,5)102 Interval[7,8)104", Show(Operators.Collect(Ticks().DefinePattern(100)
+            .SingleElement(e => e.Key == "a").SingleElement(e => e.Key == "b", (e, r) => r + e.Value).Detect(maxDuration: 4))));
+        Assert.AreEqual("Interval[2,5)match Interval[7,8)match", Show(Operators.Collect(Ticks().DefinePattern()
+            .SingleElement(e => e.Key == "a").SingleElement(e => e.Key == "b").Detect(maxDuration: 4))));
+    }
+
+    // define-pattern.md: "DefinePattern(defaultRegister, defaultAccumulator) also sets the accumulator with which each
+    // multi-element step starts." The step adds each event's value to an accumulator that starts at 10, and copies it
+    // to the register.
+    [TestMethod]
+    public void DefinePatternSetsTheDefaultAccumulator() =>
+        Assert.AreEqual("Interval[1,11)11 Interval[2,12)12 Interval[4,14)13 Interval[7,17)14 Interval[9,19)15",
+            Show(Operators.Collect(Ticks().DefinePattern(0, 10)
+                .MultiElement(null, (t, p, r, a) => a + p.Value, null, (t, a, r) => true, (t, a, r) => a, null).Detect(maxDuration: 10))));
+
+    // define-pattern.md: "Without maxDuration, Detect takes the duration from a stream that Trill knows has a constant
+    // event duration, such as the result of AlterEventDuration(4). On any other stream it throws
+    // InvalidOperationException, even when its events happen to have the same length". Ticks' events all last one tick.
+    [TestMethod]
+    public void DefinePatternDetectWithoutAMaxDuration()
+    {
+        Assert.AreEqual("Interval[2,5)103 Interval[7,8)107",
+            Show(Operators.Collect(Ticks().AlterEventDuration(4).DefinePattern(100).Detect(p => AThenBAdding(p)))));
+        Assert.ThrowsExactly<InvalidOperationException>(() => Ticks().DefinePattern(100).Detect(p => AThenBAdding(p)));
+    }
 }

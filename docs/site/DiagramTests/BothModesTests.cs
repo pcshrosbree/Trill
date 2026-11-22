@@ -18,6 +18,9 @@ public sealed class BothModesTests
     {
         // Columnar mode throws while the query is built: Ev is a class with default equality.
         ["clip-event-duration"] = 159,
+        // FollowedByImmediate clips with the same operator, so it throws the same way.
+        ["followed-by-immediate"] = 159,
+        ["followed-by-immediate-two-streams"] = 159,
         // Chop (Beat) refuses Ev in columnar mode; RepetitiveHoppingWindowLifetime ends with a Chop.
         ["repetitive-hopping-window"] = 164,
         ["chop"] = 164,

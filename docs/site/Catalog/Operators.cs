@@ -143,6 +143,17 @@ public static class Operators
                 maxDuration: 4)),
         Unary("consecutive-pairs", "ConsecutivePairs", 5, Ticks,
             input => input.ConsecutivePairs((first, second) => new Out(second.Key, first.Value + "," + second.Value))),
+        Unary("followed-by-immediate", "FollowedByImmediate", 5, Ticks,
+            input => input.FollowedByImmediate(e => e.Key == "a", e => e.Key == "b",
+                (first, second) => new Out(second.Key, first.Value + "," + second.Value), 4)),
+        Binary("followed-by-immediate-two-streams", "FollowedByImmediate (two streams)", 5, Left, Right,
+            (left, right) => left.FollowedByImmediate(right, l => l.Key == "a", r => r.Key == "a",
+                (l, r) => new Out(l.Key, l.Value + "+" + r.Value), 4)),
+        Unary("define-pattern", "DefinePattern", 5, Ticks,
+            input => input.DefinePattern(100)
+                .SingleElement(e => e.Key == "a", (e, r) => r + e.Value)
+                .SingleElement(e => e.Key == "b", (e, r) => r + e.Value)
+                .Detect(maxDuration: 4)),
     ];
 
     /// <summary>Runs <paramref name="entry"/> over <paramref name="inputs"/> in row mode.</summary>

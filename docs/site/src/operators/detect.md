@@ -10,4 +10,4 @@ In the diagram the pattern is "an `a`, then a `b`, within 4". `a` at 1 and `b` a
 
 Drag the `b` at 7 to 9 and the second match disappears: a match starting with the `a` at 4 must complete before 4 + 4. Drag it to 10, 11 or 12 and a new match forms instead, with the `a` at 9. From 13 on, that match has expired too, and only the first match remains.
 
-**See also:** [AlterEventDuration](alter-event-duration.md), [Join](join.md)
+**See also:** [DefinePattern](define-pattern.md), [FollowedByImmediate](followed-by-immediate.md), [AlterEventDuration](alter-event-duration.md), [Join](join.md)

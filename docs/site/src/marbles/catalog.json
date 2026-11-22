@@ -3409,5 +3409,221 @@
         "label": "4,5"
       }
     ]
+  },
+  {
+    "id": "followed-by-immediate",
+    "title": "FollowedByImmediate",
+    "category": "Patterns",
+    "code": "input.FollowedByImmediate(e =\u003E e.Key == \u0022a\u0022, e =\u003E e.Key == \u0022b\u0022,\n    (first, second) =\u003E new Out(second.Key, first.Value \u002B \u0022,\u0022 \u002B second.Value), 4)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 2,
+        "end": null,
+        "key": "b",
+        "label": "1,2"
+      },
+      {
+        "kind": "End",
+        "start": 2,
+        "end": 3,
+        "key": "b",
+        "label": "1,2"
+      },
+      {
+        "kind": "Start",
+        "start": 7,
+        "end": null,
+        "key": "b",
+        "label": "3,4"
+      },
+      {
+        "kind": "End",
+        "start": 7,
+        "end": 8,
+        "key": "b",
+        "label": "3,4"
+      }
+    ]
+  },
+  {
+    "id": "followed-by-immediate-two-streams",
+    "title": "FollowedByImmediate (two streams)",
+    "category": "Patterns",
+    "code": "left.FollowedByImmediate(right, l =\u003E l.Key == \u0022a\u0022, r =\u003E r.Key == \u0022a\u0022,\n    (l, r) =\u003E new Out(l.Key, l.Value \u002B \u0022\u002B\u0022 \u002B r.Value), 4)",
+    "inputNames": [
+      "left",
+      "right"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 5,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 3,
+          "end": 9,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 6,
+          "end": 8,
+          "key": "a",
+          "label": "3"
+        }
+      ],
+      [
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 4,
+          "key": "a",
+          "label": "10"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 7,
+          "key": "b",
+          "label": "20"
+        },
+        {
+          "kind": "Interval",
+          "start": 10,
+          "end": 12,
+          "key": "a",
+          "label": "30"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Start",
+        "start": 2,
+        "end": null,
+        "key": "a",
+        "label": "1\u002B10"
+      },
+      {
+        "kind": "End",
+        "start": 2,
+        "end": 3,
+        "key": "a",
+        "label": "1\u002B10"
+      }
+    ]
+  },
+  {
+    "id": "define-pattern",
+    "title": "DefinePattern",
+    "category": "Patterns",
+    "code": "input.DefinePattern(100)\n    .SingleElement(e =\u003E e.Key == \u0022a\u0022, (e, r) =\u003E r \u002B e.Value)\n    .SingleElement(e =\u003E e.Key == \u0022b\u0022, (e, r) =\u003E r \u002B e.Value)\n    .Detect(maxDuration: 4)",
+    "inputNames": [
+      "input"
+    ],
+    "defaultInputs": [
+      [
+        {
+          "kind": "Interval",
+          "start": 1,
+          "end": 2,
+          "key": "a",
+          "label": "1"
+        },
+        {
+          "kind": "Interval",
+          "start": 2,
+          "end": 3,
+          "key": "b",
+          "label": "2"
+        },
+        {
+          "kind": "Interval",
+          "start": 4,
+          "end": 5,
+          "key": "a",
+          "label": "3"
+        },
+        {
+          "kind": "Interval",
+          "start": 7,
+          "end": 8,
+          "key": "b",
+          "label": "4"
+        },
+        {
+          "kind": "Interval",
+          "start": 9,
+          "end": 10,
+          "key": "a",
+          "label": "5"
+        }
+      ]
+    ],
+    "output": [
+      {
+        "kind": "Interval",
+        "start": 2,
+        "end": 5,
+        "key": null,
+        "label": "103"
+      },
+      {
+        "kind": "Interval",
+        "start": 7,
+        "end": 8,
+        "key": null,
+        "label": "107"
+      }
+    ]
   }
 ]

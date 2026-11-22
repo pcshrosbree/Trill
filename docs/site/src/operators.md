@@ -74,3 +74,6 @@ Each operator has a page with an interactive diagram computed by Trill. It cover
 |---|---|
 | [Detect](operators/detect.md) | Finds sequences of events that match a pattern within a maximum duration. |
 | [ConsecutivePairs](operators/consecutive-pairs.md) | Pairs each event with the event before it. |
+| [FollowedByImmediate](operators/followed-by-immediate.md) | Finds an event that meets one condition, followed directly by an event that meets another, within a time limit. |
+| [FollowedByImmediate (two streams)](operators/followed-by-immediate-two-streams.md) | Finds an event on the left followed directly by an event on the right, within a time limit. |
+| [DefinePattern](operators/define-pattern.md) | Starts a pattern on a stream, with a default register, to run with `Detect`. |

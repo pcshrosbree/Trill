@@ -14,4 +14,4 @@ On a stream with no grouping key, as here, all events are paired regardless of k
 
 `ConsecutivePairs` clips the stream with itself. In columnar mode, when Trill's columnar code cannot use the payload type's equality, as for the diagram's `Ev`, that clip runs in [row mode](../row-mode.md), and the pairs are the same as in row mode.
 
-**See also:** [Detect](detect.md), [ClipEventDuration](clip-event-duration.md), [GroupApply](group-apply.md)
+**See also:** [FollowedByImmediate](followed-by-immediate.md), [Detect](detect.md), [ClipEventDuration](clip-event-duration.md), [GroupApply](group-apply.md)
