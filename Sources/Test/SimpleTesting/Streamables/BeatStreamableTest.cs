@@ -2,6 +2,7 @@
 // Copyright (c) Microsoft Corporation.  All rights reserved.
 // Licensed under the MIT License
 // *********************************************************************
+using System;
 using System.Linq;
 using System.Reactive.Linq;
 using Microsoft.StreamProcessing;
@@ -348,6 +349,70 @@ namespace SimpleTesting
 
             Assert.IsTrue(actualKey0.SequenceEqual(expectedKey0));
             Assert.IsTrue(actualKey1.SequenceEqual(expectedKey1));
+        }
+
+        // Chop's period must be positive. The check runs when Chop is called, before any subscription, and names
+        // the parameter. These tests never subscribe: a period of 0 used to divide by zero at the first event,
+        // and a negative period used to never return.
+        [TestMethod, TestCategory("Gated")]
+        public void ChopPeriodOfZeroIsRefused()
+            => Refused("period", () => LongInterval().Chop(0, 0));
+
+        [TestMethod, TestCategory("Gated")]
+        public void ChopNegativePeriodIsRefused()
+            => Refused("period", () => LongInterval().Chop(0, -3));
+
+        // The smallest period, and any offset, stay legal. For an event after the offset, an offset below 0 or
+        // above the period gives the beats of the offset modulo the period.
+        [TestMethod, TestCategory("Gated")]
+        public void ChopPeriodOfOneIsAccepted()
+            => Assert.IsNotNull(LongInterval().Chop(0, 1));
+
+        [TestMethod, TestCategory("Gated")]
+        public void ChopNegativeOffsetIsAccepted()
+        {
+            var correct = new[]
+            {
+                StreamEvent.CreateInterval(100, 110, "P"),
+                StreamEvent.CreateInterval(110, 120, "P"),
+                StreamEvent.CreateInterval(120, 125, "P"),
+                StreamEvent.CreatePunctuation<string>(StreamEvent.InfinitySyncTime)
+            };
+
+            Assert.IsTrue(LongInterval().Chop(-90, 10).IsEquivalentTo(correct));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void ChopOffsetAboveThePeriodIsAccepted()
+        {
+            var correct = new[]
+            {
+                StreamEvent.CreateInterval(100, 103, "P"),
+                StreamEvent.CreateInterval(103, 113, "P"),
+                StreamEvent.CreateInterval(113, 123, "P"),
+                StreamEvent.CreateInterval(123, 125, "P"),
+                StreamEvent.CreatePunctuation<string>(StreamEvent.InfinitySyncTime)
+            };
+
+            Assert.IsTrue(LongInterval().Chop(13, 10).IsEquivalentTo(correct));
+        }
+
+        private static void Refused(string parameter, Func<IStreamable<Empty, string>> build)
+        {
+            var e = Assert.ThrowsException<ArgumentException>(() => build());
+            Assert.AreEqual(parameter, e.ParamName);
+        }
+
+        // One interval, [100, 125).
+        private static IStreamable<Empty, string> LongInterval()
+        {
+            var input = new[]
+            {
+                StreamEvent.CreateInterval(100, 125, "P"),
+                StreamEvent.CreatePunctuation<string>(StreamEvent.InfinitySyncTime)
+            };
+
+            return input.ToCleanStreamable();
         }
     }
 }

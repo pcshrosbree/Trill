@@ -273,5 +273,23 @@ namespace SimpleTesting
 
             Assert.IsTrue(outputStream.Select(r => r.Item1).IsEquivalentTo(compareTo.Select(r => r.IsData ? StreamEvent.CreateInterval(r.SyncTime, r.OtherTime, r.Payload.Item1) : END).ToArray()));
         }
+
+        // A null stream is refused when ExtendLifetime is called, with the parameter's name, not with a
+        // NullReferenceException.
+        [TestMethod, TestCategory("Gated")]
+        public void ExtendLifetimeNullStreamIsRefused()
+        {
+            var e = Assert.ThrowsException<ArgumentNullException>(() => ((IStreamable<Empty, string>)null).ExtendLifetime(2));
+            Assert.AreEqual("stream", e.ParamName);
+        }
+
+        // Every duration stays legal: the tests above use positive and negative ones, and 0 is accepted too.
+        [TestMethod, TestCategory("Gated")]
+        public void ExtendLifetimeOfZeroIsAccepted()
+        {
+            var input = new[] { StreamEvent.CreateInterval(1, 5, "A") }.ToObservable().ToStreamable();
+
+            Assert.IsNotNull(input.ExtendLifetime(0));
+        }
     }
 }

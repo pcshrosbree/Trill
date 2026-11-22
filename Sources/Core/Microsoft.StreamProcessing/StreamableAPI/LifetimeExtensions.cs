@@ -42,6 +42,8 @@ namespace Microsoft.StreamProcessing
             long offset = 0)
         {
             Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsPositive(tumbleDuration, nameof(tumbleDuration));
+
             return source.HoppingWindowLifetime(tumbleDuration, tumbleDuration, offset);
         }
 
@@ -64,6 +66,10 @@ namespace Microsoft.StreamProcessing
             long period,
             long offset = 0)
         {
+            Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsPositive(windowSize, nameof(windowSize));
+            Invariant.IsPositive(period, nameof(period));
+
             if (period > windowSize)
             {
                 return source

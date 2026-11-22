@@ -4,7 +4,6 @@
 // *********************************************************************
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.StreamProcessing.Aggregates;
@@ -212,7 +211,8 @@ namespace Microsoft.StreamProcessing
             this IStreamable<TKey, TPayload> stream,
             long duration)
         {
-            Contract.Requires(stream != null);
+            Invariant.IsNotNull(stream, nameof(stream));
+
             if (stream.Properties.IsConstantDuration)
             {
                 var newDuration = duration + stream.Properties.ConstantDurationLength.Value;
@@ -325,6 +325,7 @@ namespace Microsoft.StreamProcessing
             long period)
         {
             Invariant.IsNotNull(source, nameof(source));
+            Invariant.IsPositive(period, nameof(period));
 
             return new BeatStreamable<TKey, TPayload>(source, offset, period);
         }
