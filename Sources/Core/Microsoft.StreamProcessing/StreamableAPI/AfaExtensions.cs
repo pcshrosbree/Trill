@@ -110,7 +110,7 @@ namespace Microsoft.StreamProcessing
                 maxDuration = source.Properties.ConstantDurationLength.Value;
             }
 
-            var afa = pattern(new PatternMatcher<TKey, TPayload, TRegister, bool>()).AFA;
+            var afa = pattern(new PatternMatcher<TKey, TPayload, TRegister, bool>(null, null, defaultRegister)).AFA;
             afa.AllowOverlappingInstances = allowOverlappingInstances;
             afa.IsDeterministic = isDeterministic;
 
@@ -148,7 +148,7 @@ namespace Microsoft.StreamProcessing
 
                 maxDuration = source.Properties.ConstantDurationLength.Value;
             }
-            var afa = pattern(new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>()).AFA;
+            var afa = pattern(new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>(null, null, defaultRegister, defaultAccumulator)).AFA;
             afa.AllowOverlappingInstances = allowOverlappingInstances;
             afa.IsDeterministic = isDeterministic;
 
@@ -194,7 +194,7 @@ namespace Microsoft.StreamProcessing
         /// <returns>The beginning of a builder from which a pattern may be defined</returns>
         public static IAbstractPattern<TKey, TPayload, TRegister, TAccumulator> DefinePattern<TKey, TPayload, TRegister, TAccumulator>(
             this IStreamable<TKey, TPayload> source, TRegister defaultRegister, TAccumulator defaultAccumulator)
-            => new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>(source, null, defaultRegister);
+            => new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>(source, null, defaultRegister, defaultAccumulator);
         #endregion
 
         #region Macro extensions for pattern matching

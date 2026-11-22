@@ -673,7 +673,7 @@ namespace Microsoft.StreamProcessing
             allPatterns[1] = pattern2;
             patterns.CopyTo(allPatterns, 2);
 
-            var result = new Afa<TInput, TRegister, TAccumulator>();
+            var result = new Afa<TInput, TRegister, TAccumulator>(pattern1.DefaultRegister, pattern1.DefaultAccumulator);
 
             int oldMax;
 
@@ -727,7 +727,7 @@ namespace Microsoft.StreamProcessing
         /// <returns>A pattern whose first transition is the one just created</returns>
         public static Afa<TInput, TRegister, TAccumulator> KleeneStar<TInput, TRegister, TAccumulator>(Afa<TInput, TRegister, TAccumulator> pattern)
         {
-            var result = new Afa<TInput, TRegister, TAccumulator>();
+            var result = new Afa<TInput, TRegister, TAccumulator>(pattern.DefaultRegister, pattern.DefaultAccumulator);
 
             // Every final state maps back to the start state
             foreach (var kvp1 in pattern.transitionInfo)
@@ -782,7 +782,7 @@ namespace Microsoft.StreamProcessing
                 // start state as final.
                 if (result.transitionInfo.Any(transitionInfo => transitionInfo.Value.ContainsKey(result.StartState)))
                 {
-                    var zeroCaseEpsilon = Afa.Create<TInput, TRegister, TAccumulator>();
+                    var zeroCaseEpsilon = Afa.Create<TInput, TRegister, TAccumulator>(pattern.DefaultRegister, pattern.DefaultAccumulator);
                     zeroCaseEpsilon.AddArc(0, 1, new EpsilonArc<TInput, TRegister> { });
                     zeroCaseEpsilon.AddFinalState(1);
                     result = Concat(zeroCaseEpsilon, pattern);

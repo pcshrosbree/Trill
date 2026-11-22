@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reactive.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -1483,5 +1484,185 @@ namespace SimpleTesting
                 }
             }
         }
+    }
+
+    // The pattern APIs must keep the default register they are given. The arcs here are single-element arcs without a
+    // transfer, so each match outputs the default register. Every default register is 5, not the type's default 0.
+    public abstract class AfaPatternDefaultRegisterTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
+    {
+        internal AfaPatternDefaultRegisterTestsBase(bool columnar, bool strict)
+            : base(new ConfigModifier().ForceRowBasedExecution(!columnar).DontFallBackToRowBasedExecution(strict)) { }
+
+        private static IStreamable<Empty, int> Input(params int[] payloads)
+            => payloads.Select((p, i) => StreamEvent.CreatePoint(i + 1, p)).ToObservable().ToStreamable();
+
+        private static string Registers(IStreamable<Empty, int> output)
+            => string.Join(", ", output.ToStreamEventObservable().ToEnumerable().Where(e => e.IsData).Select(e => e.Payload));
+
+        // One arc from state 0 to the final state 1.
+        private static Afa<int, int, int> Matching(Expression<Func<long, int, int, bool>> fence, int defaultRegister = 5, int defaultAccumulator = 10)
+        {
+            var afa = new Afa<int, int, int>(defaultRegister, defaultAccumulator);
+            afa.AddSingleElementArc(0, 1, fence);
+            afa.AddFinalState(1);
+            return afa;
+        }
+
+        // The control: Detect of an automaton keeps its default register.
+        [TestMethod, TestCategory("Gated")]
+        public void DetectOfAnAutomatonKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(Matching((t, e, r) => e == 1), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithRegisterKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(5, p => p.SingleElement(e => e == 1), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithRegisterAndAccumulatorKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(5, 10, p => p.SingleElement(e => e == 1), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void RegexOrKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(ARegex.Or(Matching((t, e, r) => e == 1), Matching((t, e, r) => e == 2)), maxDuration: 10)));
+
+        // Or takes its first pattern's defaults, as Concat does.
+        [TestMethod, TestCategory("Gated")]
+        public void RegexOrKeepsTheFirstPatternsDefaultRegister()
+        {
+            var either = ARegex.Or(Matching((t, e, r) => e == 1, 5, 10), Matching((t, e, r) => e == 2, 7, 20));
+            Assert.AreEqual("5", Registers(Input(1).Detect(either, maxDuration: 10)));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void RegexOrOfThreeKeepsTheFirstPatternsDefaultRegister()
+        {
+            var either = ARegex.Or(Matching((t, e, r) => e == 1, 5, 10), Matching((t, e, r) => e == 2, 7, 20), Matching((t, e, r) => e == 3, 9, 30));
+            Assert.AreEqual("5", Registers(Input(1).Detect(either, maxDuration: 10)));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void RegexKleeneStarKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(ARegex.KleeneStar(Matching((t, e, r) => e == 1)), maxDuration: 10)));
+
+        // An arc leads back to the start state, so ZeroOrOne puts an epsilon arc in front of the pattern.
+        [TestMethod, TestCategory("Gated")]
+        public void RegexZeroOrOneWithALoopKeepsDefaultRegister()
+        {
+            var afa = Matching((t, e, r) => e == 1);
+            afa.AddSingleElementArc(1, 0, (t, e, r) => e == 2);
+            Assert.AreEqual("5", Registers(Input(1).Detect(ARegex.ZeroOrOne(afa), maxDuration: 10)));
+        }
+    }
+
+    [TestClass]
+    public class AfaPatternDefaultRegisterTestsRow : AfaPatternDefaultRegisterTestsBase
+    {
+        public AfaPatternDefaultRegisterTestsRow() : base(false, false) { }
+    }
+
+    [TestClass]
+    public class AfaPatternDefaultRegisterTestsColumnar : AfaPatternDefaultRegisterTestsBase
+    {
+        public AfaPatternDefaultRegisterTestsColumnar() : base(true, false) { }
+    }
+
+    [TestClass]
+    public class AfaPatternDefaultRegisterTestsColumnarStrict : AfaPatternDefaultRegisterTestsBase
+    {
+        public AfaPatternDefaultRegisterTestsColumnarStrict() : base(true, true) { }
+    }
+
+    // The pattern APIs must keep the default accumulator they are given. Each automaton here has a multi-element arc
+    // without an initializer, which starts each match from the default accumulator 10 and adds each payload to it, so
+    // payload 1 gives 11. Code generation cannot write such an arc, so the columnar runs fall back to row execution
+    // and there is no strict columnar class.
+    public abstract class AfaPatternDefaultAccumulatorTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
+    {
+        internal AfaPatternDefaultAccumulatorTestsBase(bool columnar)
+            : base(new ConfigModifier().ForceRowBasedExecution(!columnar).DontFallBackToRowBasedExecution(false)) { }
+
+        private static IStreamable<Empty, int> Input(params int[] payloads)
+            => payloads.Select((p, i) => StreamEvent.CreatePoint(i + 1, p)).ToObservable().ToStreamable();
+
+        private static string Registers(IStreamable<Empty, int> output)
+            => string.Join(", ", output.ToStreamEventObservable().ToEnumerable().Where(e => e.IsData).Select(e => e.Payload));
+
+        private static Afa<int, int, int> AddsToTen(int defaultRegister = 0, int defaultAccumulator = 10)
+        {
+            var afa = new Afa<int, int, int>(defaultRegister, defaultAccumulator);
+            afa.AddMultiElementArc(0, 1, initialize: null, accumulate: (t, e, r, a) => a + e, fence: (t, a, r) => true, transfer: (t, a, r) => a);
+            afa.AddFinalState(1);
+            return afa;
+        }
+
+        // Or and ZeroOrOne add a start state that has only epsilon arcs. The automata given to them here also have a
+        // single-element arc, so the engine runs them in its pipe for automata with arcs of several kinds.
+        private static Afa<int, int, int> NeverMatches(int defaultRegister = 0, int defaultAccumulator = 10)
+        {
+            var afa = new Afa<int, int, int>(defaultRegister, defaultAccumulator);
+            afa.AddSingleElementArc(0, 1, (t, e, r) => e == 99);
+            afa.AddFinalState(1);
+            return afa;
+        }
+
+        // The control: Detect of an automaton keeps its default accumulator.
+        [TestMethod, TestCategory("Gated")]
+        public void DetectOfAnAutomatonKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(AddsToTen(), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithRegisterAndAccumulatorKeepsDefaultAccumulator()
+        {
+            var output = Input(1).Detect(0, 10, p => p.MultiElement(null, (t, e, r, a) => a + e, null, (t, a, r) => true, (t, a, r) => a, null), maxDuration: 10);
+            Assert.AreEqual("11", Registers(output));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void DefinePatternKeepsDefaultAccumulator()
+        {
+            var output = Input(1)
+                .DefinePattern(0, 10)
+                .MultiElement(null, (t, e, r, a) => a + e, null, (t, a, r) => true, (t, a, r) => a, null)
+                .Detect(maxDuration: 10);
+            Assert.AreEqual("11", Registers(output));
+        }
+
+        [TestMethod, TestCategory("Gated")]
+        public void RegexOrKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(ARegex.Or(AddsToTen(), NeverMatches()), maxDuration: 10)));
+
+        // Or takes its first pattern's defaults, as Concat does: 10 + 1, not 20 + 1.
+        [TestMethod, TestCategory("Gated")]
+        public void RegexOrKeepsTheFirstPatternsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(ARegex.Or(AddsToTen(5, 10), NeverMatches(7, 20)), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void RegexOrOfThreeKeepsTheFirstPatternsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(ARegex.Or(AddsToTen(5, 10), NeverMatches(7, 20), NeverMatches(9, 30)), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void RegexKleeneStarKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(ARegex.KleeneStar(AddsToTen()), maxDuration: 10)));
+
+        // An arc leads back to the start state, so ZeroOrOne puts an epsilon arc in front of the pattern.
+        [TestMethod, TestCategory("Gated")]
+        public void RegexZeroOrOneWithALoopKeepsDefaultAccumulator()
+        {
+            var afa = AddsToTen();
+            afa.AddSingleElementArc(1, 0, (t, e, r) => e == 2);
+            Assert.AreEqual("11", Registers(Input(1).Detect(ARegex.ZeroOrOne(afa), maxDuration: 10)));
+        }
+    }
+
+    [TestClass]
+    public class AfaPatternDefaultAccumulatorTestsRow : AfaPatternDefaultAccumulatorTestsBase
+    {
+        public AfaPatternDefaultAccumulatorTestsRow() : base(false) { }
+    }
+
+    [TestClass]
+    public class AfaPatternDefaultAccumulatorTestsColumnar : AfaPatternDefaultAccumulatorTestsBase
+    {
+        public AfaPatternDefaultAccumulatorTestsColumnar() : base(true) { }
     }
 }
