@@ -101,7 +101,7 @@ internal sealed class <#= className #> : CompiledAfaPipeBase<<#= TKey #>, <#= TP
                                         {
                                             <# if (edge.Transfer != null) { #>
 
-                                                activeStates.Values[activeFind_index].register = <#= edge.Transfer("lastSyncTime", "state2.accumulator", "state2.register") #>;
+                                                activeStates.Values[activeFind_index].register = newReg = <#= edge.Transfer("lastSyncTime", "state2.accumulator", "state2.register") #>;
                                             <# } #>
 
                                             <#= edge.Dispose("activeStates.Values[activeFind_index].accumulator") #>;

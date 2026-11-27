@@ -55,6 +55,12 @@ namespace SimpleTesting
         public override string ToString() => new { this.Field1, this.Field2 }.ToString();
     }
 
+    // The payload of AfaMultiElementTransferTestsBase: a struct with a field, so columnar mode holds it in a column.
+    public struct AfaKeyEvent
+    {
+        public int Key;
+    }
+
     public class Payload2 : IComparable<Payload2>
     {
         private static long nextTick = 0;
@@ -1664,5 +1670,96 @@ namespace SimpleTesting
     public class AfaPatternDefaultAccumulatorTestsColumnar : AfaPatternDefaultAccumulatorTestsBase
     {
         public AfaPatternDefaultAccumulatorTestsColumnar() : base(true) { }
+    }
+
+    // A match outputs the register after the transfer of the arc that completes it (fork issue #135). The automata
+    // with multi-element arcs have only such arcs, each with an initializer, so columnar mode runs generated code.
+    // Keys 1, 2, 1, 2, 1 at times 1, 2, 4, 7, 9: each automaton matches at times 2 and 7.
+    public abstract class AfaMultiElementTransferTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
+    {
+        private static readonly long[] Times = { 1, 2, 4, 7, 9 };
+
+        internal AfaMultiElementTransferTestsBase(bool columnar, bool strict)
+            : base(new ConfigModifier().ForceRowBasedExecution(!columnar).DontFallBackToRowBasedExecution(strict)) { }
+
+        private static IStreamable<Empty, AfaKeyEvent> Input()
+            => new[] { 1, 2, 1, 2, 1 }.Select((k, i) => StreamEvent.CreatePoint(Times[i], new AfaKeyEvent { Key = k })).ToObservable().ToStreamable();
+
+        private static string Registers(IStreamable<Empty, int> output)
+            => string.Join(", ", output.ToStreamEventObservable().ToEnumerable().Where(e => e.IsData).Select(e => e.StartTime + ":" + e.Payload));
+
+        // Matches when the sum of key * 10 is 20; the transfer sets 42.
+        [TestMethod, TestCategory("Gated")]
+        public void OneArcOutputsItsTransfer()
+        {
+            var afa = new Afa<AfaKeyEvent, int, int>();
+            afa.AddMultiElementArc(0, 1,
+                initialize: (t, r) => 0,
+                accumulate: (t, e, r, acc) => acc + (e.Key * 10),
+                fence: (t, acc, r) => acc == 20,
+                transfer: (t, acc, r) => 42);
+            afa.AddFinalState(1);
+            Assert.AreEqual("2:42, 7:42", Registers(Input().Detect(afa, maxDuration: 1)));
+        }
+
+        // The first arc matches key 1 and sets 42; the second adds the next key to the register: 42 + 2.
+        [TestMethod, TestCategory("Gated")]
+        public void TwoArcsOutputTheSecondArcsTransfer()
+        {
+            var afa = new Afa<AfaKeyEvent, int, int>();
+            afa.AddMultiElementArc(0, 1,
+                initialize: (t, r) => 0,
+                accumulate: (t, e, r, acc) => acc + e.Key,
+                fence: (t, acc, r) => acc == 1,
+                transfer: (t, acc, r) => 42);
+            afa.AddMultiElementArc(1, 2,
+                initialize: (t, r) => r,
+                accumulate: (t, e, r, acc) => acc + e.Key,
+                fence: (t, acc, r) => true,
+                transfer: (t, acc, r) => acc);
+            afa.AddFinalState(2);
+            Assert.AreEqual("2:44, 7:44", Registers(Input().Detect(afa, maxDuration: 5)));
+        }
+
+        // The control: an arc without a transfer outputs the register it started with.
+        [TestMethod, TestCategory("Gated")]
+        public void OneArcWithoutATransferOutputsTheDefaultRegister()
+        {
+            var afa = new Afa<AfaKeyEvent, int, int>(defaultRegister: 5);
+            afa.AddMultiElementArc(0, 1,
+                initialize: (t, r) => 0,
+                accumulate: (t, e, r, acc) => acc + (e.Key * 10),
+                fence: (t, acc, r) => acc == 20);
+            afa.AddFinalState(1);
+            Assert.AreEqual("2:5, 7:5", Registers(Input().Detect(afa, maxDuration: 1)));
+        }
+
+        // The control: a single-element arc with the same transfer.
+        [TestMethod, TestCategory("Gated")]
+        public void SingleElementArcOutputsItsTransfer()
+        {
+            var afa = new Afa<AfaKeyEvent, int, int>();
+            afa.AddSingleElementArc(0, 1, (t, e, r) => e.Key == 2, (t, e, r) => 42);
+            afa.AddFinalState(1);
+            Assert.AreEqual("2:42, 7:42", Registers(Input().Detect(afa, maxDuration: 1)));
+        }
+    }
+
+    [TestClass]
+    public class AfaMultiElementTransferTestsRow : AfaMultiElementTransferTestsBase
+    {
+        public AfaMultiElementTransferTestsRow() : base(false, false) { }
+    }
+
+    [TestClass]
+    public class AfaMultiElementTransferTestsColumnar : AfaMultiElementTransferTestsBase
+    {
+        public AfaMultiElementTransferTestsColumnar() : base(true, false) { }
+    }
+
+    [TestClass]
+    public class AfaMultiElementTransferTestsColumnarStrict : AfaMultiElementTransferTestsBase
+    {
+        public AfaMultiElementTransferTestsColumnarStrict() : base(true, true) { }
     }
 }

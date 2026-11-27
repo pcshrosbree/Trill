@@ -173,7 +173,7 @@ using Microsoft.StreamProcessing.Internal.Collections;
                     "         ");
  if (edge.Transfer != null) { 
             this.Write("\r\n                                                activeStates.Values[activeFind_" +
-                    "index].register = ");
+                    "index].register = newReg = ");
             this.Write(this.ToStringHelper.ToStringWithCulture(edge.Transfer("lastSyncTime", "state2.accumulator", "state2.register")));
             this.Write(";\r\n                                            ");
  } 
