@@ -223,7 +223,9 @@ namespace Microsoft.StreamProcessing
             params Func<IAbstractPatternRoot<TKey, TPayload, TRegister, TAccumulator>, IPattern<TKey, TPayload, TRegister, TAccumulator>>[] patterns)
         {
             var pattern1 = this.AFA;
-            var pattern2 = pattern(new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>()).AFA;
+
+            // As the first step, pattern2 is the one ConcatWorker clones, so it is built with this builder's defaults.
+            var pattern2 = pattern(new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>(null, null, this.defaultRegister, this.defaultAccumulator)).AFA;
 
             var afa = new Afa<TPayload, TRegister, TAccumulator>[patterns.Length];
             for (int i = 0; i < patterns.Length; i++)
@@ -239,7 +241,8 @@ namespace Microsoft.StreamProcessing
             Func<IAbstractPatternRoot<TKey, TPayload, TRegister, TAccumulator>, IPattern<TKey, TPayload, TRegister, TAccumulator>> pattern2,
             params Func<IAbstractPatternRoot<TKey, TPayload, TRegister, TAccumulator>, IPattern<TKey, TPayload, TRegister, TAccumulator>>[] patterns)
         {
-            var afa1 = pattern1(new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>()).AFA;
+            // ConcatWorker clones afa1, so it is built with this builder's defaults.
+            var afa1 = pattern1(new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>(null, null, this.defaultRegister, this.defaultAccumulator)).AFA;
             var afa2 = pattern2(new PatternMatcher<TKey, TPayload, TRegister, TAccumulator>()).AFA;
 
             var afa = new Afa<TPayload, TRegister, TAccumulator>[patterns.Length];

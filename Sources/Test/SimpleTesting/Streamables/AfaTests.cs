@@ -1762,4 +1762,134 @@ namespace SimpleTesting
     {
         public AfaMultiElementTransferTestsColumnarStrict() : base(true, true) { }
     }
+
+    // The pattern builder must keep its default register when Concat, OrConcat or KleenePlus is its first step. The
+    // arcs here are single-element arcs without a transfer, so each match outputs the default register, 5.
+    public abstract class AfaPatternFirstStepDefaultRegisterTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
+    {
+        internal AfaPatternFirstStepDefaultRegisterTestsBase(bool columnar, bool strict)
+            : base(new ConfigModifier().ForceRowBasedExecution(!columnar).DontFallBackToRowBasedExecution(strict)) { }
+
+        private static IStreamable<Empty, int> Input(params int[] payloads)
+            => payloads.Select((p, i) => StreamEvent.CreatePoint(i + 1, p)).ToObservable().ToStreamable();
+
+        private static string Registers(IStreamable<Empty, int> output)
+            => string.Join(", ", output.ToStreamEventObservable().ToEnumerable().Where(e => e.IsData).Select(e => e.Payload));
+
+        // The control: SingleElement as the first step keeps the default register.
+        [TestMethod, TestCategory("Gated")]
+        public void SingleElementFirstKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).DefinePattern(5).SingleElement(e => e == 1).Detect(maxDuration: 10)));
+
+        // The control: Concat after a first step clones that step's automaton, which has the default register.
+        [TestMethod, TestCategory("Gated")]
+        public void ConcatAfterAFirstStepKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1, 2).DefinePattern(5).SingleElement(e => e == 1).Concat(x => x.SingleElement(e => e == 2)).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void ConcatFirstKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).DefinePattern(5).Concat(x => x.SingleElement(e => e == 1)).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithConcatFirstKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(5, p => p.Concat(x => x.SingleElement(e => e == 1)), maxDuration: 10)));
+
+        // OrConcat matches its first pattern alone, or both in turn; the input has only the first.
+        [TestMethod, TestCategory("Gated")]
+        public void OrConcatFirstKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).DefinePattern(5).OrConcat(x => x.SingleElement(e => e == 1), x => x.SingleElement(e => e == 2)).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithOrConcatFirstKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(5, p => p.OrConcat(x => x.SingleElement(e => e == 1), x => x.SingleElement(e => e == 2)), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void KleenePlusFirstKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).DefinePattern(5).KleenePlus(x => x.SingleElement(e => e == 1)).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithKleenePlusFirstKeepsDefaultRegister()
+            => Assert.AreEqual("5", Registers(Input(1).Detect(5, p => p.KleenePlus(x => x.SingleElement(e => e == 1)), maxDuration: 10)));
+    }
+
+    [TestClass]
+    public class AfaPatternFirstStepDefaultRegisterTestsRow : AfaPatternFirstStepDefaultRegisterTestsBase
+    {
+        public AfaPatternFirstStepDefaultRegisterTestsRow() : base(false, false) { }
+    }
+
+    [TestClass]
+    public class AfaPatternFirstStepDefaultRegisterTestsColumnar : AfaPatternFirstStepDefaultRegisterTestsBase
+    {
+        public AfaPatternFirstStepDefaultRegisterTestsColumnar() : base(true, false) { }
+    }
+
+    [TestClass]
+    public class AfaPatternFirstStepDefaultRegisterTestsColumnarStrict : AfaPatternFirstStepDefaultRegisterTestsBase
+    {
+        public AfaPatternFirstStepDefaultRegisterTestsColumnarStrict() : base(true, true) { }
+    }
+
+    // The pattern builder must keep its default accumulator when Concat, OrConcat or KleenePlus is its first step. The
+    // multi-element arc here has no initializer, so each match starts from the default accumulator 10 and payload 1
+    // gives 11. Code generation cannot write such an arc, so the columnar runs fall back to row execution and there is
+    // no strict columnar class.
+    public abstract class AfaPatternFirstStepDefaultAccumulatorTestsBase : TestWithConfigSettingsAndMemoryLeakDetection
+    {
+        internal AfaPatternFirstStepDefaultAccumulatorTestsBase(bool columnar)
+            : base(new ConfigModifier().ForceRowBasedExecution(!columnar).DontFallBackToRowBasedExecution(false)) { }
+
+        private static IStreamable<Empty, int> Input(params int[] payloads)
+            => payloads.Select((p, i) => StreamEvent.CreatePoint(i + 1, p)).ToObservable().ToStreamable();
+
+        private static string Registers(IStreamable<Empty, int> output)
+            => string.Join(", ", output.ToStreamEventObservable().ToEnumerable().Where(e => e.IsData).Select(e => e.Payload));
+
+        private static IPattern<Empty, int, int, int> AddsToTen(IAbstractPatternRoot<Empty, int, int, int> x)
+            => x.MultiElement(null, (t, e, r, a) => a + e, null, (t, a, r) => true, (t, a, r) => a, null);
+
+        private static IPattern<Empty, int, int, int> NeverMatches(IAbstractPatternRoot<Empty, int, int, int> x)
+            => x.SingleElement(e => e == 99);
+
+        // The control: MultiElement as the first step keeps the default accumulator.
+        [TestMethod, TestCategory("Gated")]
+        public void MultiElementFirstKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).DefinePattern(0, 10).MultiElement(null, (t, e, r, a) => a + e, null, (t, a, r) => true, (t, a, r) => a, null).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void ConcatFirstKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).DefinePattern(0, 10).Concat(AddsToTen).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithConcatFirstKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(0, 10, p => p.Concat(AddsToTen), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void OrConcatFirstKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).DefinePattern(0, 10).OrConcat(AddsToTen, NeverMatches).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithOrConcatFirstKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(0, 10, p => p.OrConcat(AddsToTen, NeverMatches), maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void KleenePlusFirstKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).DefinePattern(0, 10).KleenePlus(AddsToTen).Detect(maxDuration: 10)));
+
+        [TestMethod, TestCategory("Gated")]
+        public void DetectWithKleenePlusFirstKeepsDefaultAccumulator()
+            => Assert.AreEqual("11", Registers(Input(1).Detect(0, 10, p => p.KleenePlus(AddsToTen), maxDuration: 10)));
+    }
+
+    [TestClass]
+    public class AfaPatternFirstStepDefaultAccumulatorTestsRow : AfaPatternFirstStepDefaultAccumulatorTestsBase
+    {
+        public AfaPatternFirstStepDefaultAccumulatorTestsRow() : base(false) { }
+    }
+
+    [TestClass]
+    public class AfaPatternFirstStepDefaultAccumulatorTestsColumnar : AfaPatternFirstStepDefaultAccumulatorTestsBase
+    {
+        public AfaPatternFirstStepDefaultAccumulatorTestsColumnar() : base(true) { }
+    }
 }
